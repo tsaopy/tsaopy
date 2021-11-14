@@ -101,65 +101,6 @@ end do
 return
 end subroutine simulation
 
-!--------------------------------------------------------
-!
-subroutine rk4aux(x,a_in,b_in,dt,na,nb)
-implicit none
-! inout vars
-integer,intent(in) :: na,nb
-real(8),intent(in) :: dt
-real(8),intent(inout),dimension(2) :: x
-real(8),intent(in),dimension(na) :: a_in
-real(8),intent(in),dimension(nb) :: b_in
-! aux vars
-real(8),dimension(2) :: k1,k2,k3,k4,xaux,kaux
-
-xaux = x
-call deriv(xaux,a_in,b_in,kaux,na,nb)
-k1 = dt*kaux
-
-xaux = x+0.5*k1
-call deriv(xaux,a_in,b_in,kaux,na,nb)
-k2 = dt*kaux
-
-xaux = x+0.5*k2
-call deriv(xaux,a_in,b_in,kaux,na,nb)
-k3 = dt*kaux
-
-xaux = x+k3
-call deriv(xaux,a_in,b_in,kaux,na,nb)
-k4 = dt*kaux
-
-x = x + (k1+2*k2+2*k3+k4)/6
-
-return
-end subroutine rk4aux
-
-!--------------------------------------------------------
-!
-subroutine simulationaux(x_in,a_in,b_in,result,dt,nsimu,na,nb)
-implicit none
-! inout vars
-integer,intent(in) :: na,nb,nsimu
-real(8),intent(in) :: dt
-real(8),intent(in),dimension(2) :: x_in
-real(8),intent(in),dimension(na) :: a_in
-real(8),intent(in),dimension(nb) :: b_in
-real(8),intent(out),dimension(nsimu) :: result
-! aux vars
-integer :: i
-real(8),dimension(2) :: xaux
-
-result(1) = x_in(1)
-xaux = x_in
-do i=2,nsimu
-    call rk4aux(xaux,a_in,b_in,dt,na,nb)
-    result(i) = xaux(1)
-end do
-
-return
-end subroutine simulationaux
-
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!                                                                   !!!!!!!
