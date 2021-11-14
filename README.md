@@ -2,7 +2,7 @@
 
 Cosas para agregar:
 1) Crear dos versiones más del main y del integrador Fortran, una agregando la driving force, y otra agregando términos cruzados de x y v.
-1) a) Está listo el integrador Fortran para la rama driving force, habría que modificar el main de forma acorde. 
+- Está listo el integrador Fortran para la rama driving force, habría que modificar el main de forma acorde. 
 2) Agregar una carpeta con distintos modelos para testear? Ahora mismo está el de Duffing.
 
 Cosas para mejorar/corregir/revisar:
