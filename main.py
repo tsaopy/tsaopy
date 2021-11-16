@@ -5,7 +5,6 @@
 # ### imports
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.signal import savgol_filter
 from scipy.optimize import minimize
 from multiprocessing import Pool, cpu_count
 from time import time
@@ -17,17 +16,14 @@ from oscadsf2py import simulation
 
 # ### datos de inicializacion
 # importar serie temporal
-data_t, data_x = np.loadtxt('testdata.txt', usecols=0),\
-    np.loadtxt('testdata.txt', usecols=1)
+filename = 'osc05C0-03_processed_trans_sigma50.txt'
+data_t, data_x = np.loadtxt(filename, usecols=0),\
+    np.loadtxt(filename, usecols=1)
 # obtener parametros basicos
-t_step, t0, tf, N_data = data_t[1]-data_t[0], data_t[0], data_t[-1],\
-                         len(data_x)
+t_step, t0, tf, N_data, x0_ini = data_t[1]-data_t[0], data_t[0],\
+                         data_t[-1], len(data_x), data_x[0]
 # paso de integracion
 dt = t_step/10.0
-# obtener x0 por filtrado sav-gol
-data_x_savgol = savgol_filter(data_x[:15], window_length=15,
-                              polyorder=2)
-x0_ini = data_x_savgol[0]
 
 # ### priors
 # estimacion del valor omega0 al cuadrado
