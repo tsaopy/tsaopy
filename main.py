@@ -5,7 +5,7 @@
 # ### imports
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.optimize import minimize
+from scipy.optimize import minimize,basinhopping
 from multiprocessing import Pool, cpu_count
 from time import time
 
@@ -16,7 +16,7 @@ from oscadsf2py import simulation
 
 # ### datos de inicializacion
 # importar serie temporal
-filename = 'osc05C0-03_processed_trans_sigma50.txt'
+filename = 'testdata.txt'
 data_t, data_x = np.loadtxt(filename, usecols=0),\
     np.loadtxt(filename, usecols=1)
 # obtener parametros basicos
@@ -26,23 +26,29 @@ t_step, t0, tf, N_data, x0_ini = data_t[1]-data_t[0], data_t[0],\
 dt = t_step/10.0
 
 # ### priors
-# estimacion del valor omega0 al cuadrado
-w0sq_guess = 1.0
-# construccion del array de priors
 # IMPORTANTE : las dimensiones del array de priors define posteriormente
 # la cantidad de terminos de la ec de mov que considera emcee
-prior = [x0_ini, 0.0, [0.0], [w0sq_guess, 0.0, 0.0]]
+# estimacion del valor omega0 al cuadrado
+w0sq_guess = 1.0
+w0_guess = w0sq_guess**0.5
+A_guess = [0.0]
+B_guess = [w0sq_guess, 0.0, 0.0]
+
+# construccion del array de priors
+prior = [x0_ini, 0.0, A_guess, B_guess]
 # estimacion del rango de variabilidad de los parametros
+# la convergencia o no del metodo es altamente sensible de esto
+# elegir bien
 prior_bounds = [  # x0
-                (0.5*x0_ini, 1.5*x0_ini),
+                (0.7*x0_ini, 1.4*x0_ini),
                 # v0
-                (-0.2, 0.2),
+                (-x0_ini*w0_guess/10, x0_ini*w0_guess/10),
                 # disipacion
-                (-0.1, 0.1),
+                (-w0sq_guess/5, w0sq_guess/3),
                 # potencial
-                (0, 2*w0sq_guess),
-                (-0.1, 0.1),
-                (-0.9, 0.9)]
+                (0, 3*w0sq_guess),
+                (-0.5*w0sq_guess, 1*w0sq_guess),
+                (-0.5*w0sq_guess, 1*w0sq_guess)]
 
 
 # ### funciones auxiliares
@@ -122,19 +128,19 @@ def log_probability(theta):
     return (lp + log_likelihood(theta))
 
 
-# # ###### OPCIONAL EN ALGUNOS CASOS ES MEJOR SACARLO
-# # ### busqueda de los coefs iniciales para iniciar la cadena mcmc
-# # definir la funcion a minimizar
-# def neg_ll(*args):
-#     return -log_likelihood(*args)
+# ###### OPCIONAL EN ALGUNOS CASOS ES MEJOR SACARLO
+# ### busqueda de los coefs iniciales para iniciar la cadena mcmc
+# definir la funcion a minimizar
+def neg_ll(*args):
+    return -log_likelihood(*args)
 
 
-# # optimizar por metodo con cotas, usando los priors
-# soln = minimize(neg_ll, priors_wraped, method='Powell',
-#                 bounds=prior_bounds, options={'maxiter': 300})
+# optimizar por metodo con cotas, usando los priors
 
-# initial = soln.x  # si se saca la opt x scipy dejar linea de abajo
-initial = priors_wraped
+soln = basinhopping(neg_ll, priors_wraped, niter=20, minimizer_kwargs=
+                    {"bounds": prior_bounds, "method": "Nelder-Mead"})
+
+initial = soln.x
 
 # parametros de la cadena emcee
 n_iter = 10000
