@@ -1,13 +1,17 @@
 # Repositorio adscripción
 
-Cosas para agregar:
-1) Crear dos versiones más del main y del integrador Fortran, una agregando la driving force, y otra agregando términos cruzados de x y v.
-- Está algo trabajada la rama driving force, hay que mejorar el main. 
-- La driving force tiene forma senoidal, sería bueno modificar el script de Fortran para que pueda trabajar con una fuerza cualquiera definida desde el main, pero no se me ocurre como encararlo por el momento. 
-2) Agregar una carpeta con distintos modelos para testear? Ahora mismo está el de Duffing.
+Importante: es necesario correr los scripts desde una computadora con Linux; los paquetes `f2py`, `emcee` y `multiprocessing` no funcionan bien en Windows. 
 
-Cosas para mejorar/corregir/revisar:
-1) Revisar el método para estimar x0.
-2) Revisar el método para hacer el fitteo inicial.
-3) Por algún motivo las funciones para Python que genera f2py no respetan el orden de ingreso de las variables del código de Fortran. Puede ser un problema de la libería f2py en sí, habría que revisar la documentación con máś detalle.
-4) Revisar la función 'log_prior'. 
+## Archivos
+
+### main
+Es el script principal para correr la cadena MCMC y producir gráficas con los resultados. Se cargan los datos a partir de un archivo definido por el usuario. Parámetros de la simulación, información previa sobre los coeficientes a ajustar, parámetros del modelo, etc se cargan a mano por el usuario. 
+
+### integrator_f2py
+Este archivo contiene el código Fortran, al ser ejecutado compila dicho código y produce un paquete de Python con las funciones que usa el main en la simulación.
+
+### maketestdata
+Este script producen una serie temporal de prueba con los parámetros definidos por el usuario. 
+
+### process_expdata
+Este script procesa datos experimentales aplicando filtros para reducir el ruido, convertir formatos, etc, de forma que sean utilizables por el main. Está diseñado para trabajar los datos en crudo de las mediciones del grupo de Horacio. 
