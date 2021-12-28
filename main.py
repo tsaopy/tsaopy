@@ -5,7 +5,6 @@
 # ### imports
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.optimize import basinhopping
 from multiprocessing import Pool, cpu_count
 from time import time
 
@@ -46,17 +45,17 @@ prior = [x0_ini, 0.0, A_guess, B_guess,0.0]
 # la convergencia o no del metodo es altamente sensible de esto
 # elegir bien
 prior_bounds = [  # x0
-                (0.7*x0_ini, 1.4*x0_ini),
+                (0.7*x0_ini, 1.5*x0_ini),
                 # v0
-                (-x0_ini*w0_guess/10, x0_ini*w0_guess/10),
+                (-x0_ini*w0_guess/5, x0_ini*w0_guess/10),
                 # disipacion
                 (-w0sq_guess/5, w0sq_guess/2),
                 # potencial
-                (-1e-10, 3*w0sq_guess),
+                (-w0sq_guess/5, 15*w0sq_guess),
                 (-0.5*w0sq_guess, 1*w0sq_guess),
-                (-0.5*w0sq_guess, 1*w0sq_guess),
+                (-w0sq_guess, 2*w0sq_guess),
                 # termino del bias
-                (-np.inf,np.inf)
+                (-1e100,1e100)
                 ]
 
 
@@ -134,25 +133,11 @@ def log_probability(theta):
     return (lp + log_likelihood(theta))
 
 
-# ###### OPCIONAL EN ALGUNOS CASOS ES MEJOR SACARLO
-# ### busqueda de los coefs iniciales para iniciar la cadena mcmc
-# definir la funcion a minimizar
-def neg_ll(*args):
-    return -log_likelihood(*args)
-
-
-# optimizar por metodo con cotas, usando los priors
-
-soln = basinhopping(neg_ll, priors_wraped, niter=20, minimizer_kwargs=
-                    {"bounds": prior_bounds, "method": "Nelder-Mead"})
-
-initial = soln.x
-
 # parametros de la cadena emcee
-n_iter = 10000
+n_iter = 30000
 n_iter_burn = n_iter//10
 n_walkers = 50
-p0 = [initial + 1e-7 * np.random.randn(ndim) for i in range(n_walkers)]
+p0 = [priors_wraped + 1e-7 * np.random.randn(ndim) for i in range(n_walkers)]
 
 
 # setear el main de emcee
@@ -164,6 +149,7 @@ def main(p0, n_walkers, n_iter, ndim, log_probability):
         print("Running burn-in...")
         p0, _, _ = sampler.run_mcmc(p0, n_iter_burn, progress=True)
         sampler.reset()
+
 
         print("Running production...")
         pos, prob, state = sampler.run_mcmc(p0, n_iter, progress=True)
@@ -185,9 +171,9 @@ sampler, pos, prob, state = main(p0, n_walkers, n_iter, ndim,
 
 fig, axes = plt.subplots(ndim-1, figsize=(10, 7), sharex=True)
 samples = sampler.get_chain()
-label_list = ['x0', 'v0'] +\
-            ['a'+str(_xd+1) for _xd in range(main_wrap_info[0])] + \
-            ['b'+str(_xd+1) for _xd in range(main_wrap_info[1])]
+label_list = ['x0', 'v0'] + \
+            ['a'+str(_+1) for _ in range(main_wrap_info[0])] + \
+            ['b'+str(_+1) for _ in range(main_wrap_info[1])]
 
 for i in range(ndim-1):
     ax = axes[i]
@@ -199,7 +185,7 @@ for i in range(ndim-1):
 axes[-1].set_xlabel("step number")
 
 autoc_tau = int(max(sampler.get_autocorr_time()))
-flat_samples = sampler.get_chain(flat=True, thin=autoc_tau)
+flat_samples = sampler.get_chain(flat=True, thin=autoc_tau)[:,:-1]
 sample_truths = [np.mean(flat_samples[:, _]) for _ in range(ndim-1)]
 
 fig = corner.corner(flat_samples, labels=label_list,
@@ -210,7 +196,7 @@ fig = corner.corner(flat_samples, labels=label_list,
 finish = time()
 
 print('')
-print('---------------------------------------------------------------')
+print('---------------------------------------------------------------------')
 print('Execution finished. Time elapsed: {:.3f} sec.'.format(finish -
                                                              start))
 print('')
