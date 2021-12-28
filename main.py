@@ -19,6 +19,10 @@ from oscadsf2py import simulation
 filename = 'testdata.txt'
 data_t, data_x = np.loadtxt(filename, usecols=0),\
     np.loadtxt(filename, usecols=1)
+
+# incerteza 1 sigma sobre los datos x importados
+data_sigma = 2e-2
+
 # obtener parametros basicos
 t_step, t0, tf, N_data, x0_ini = data_t[1]-data_t[0], data_t[0],\
                          data_t[-1], len(data_x), data_x[0]
@@ -90,13 +94,12 @@ def model(_coefs_):
                       na, nb)[::10]
 
 
-# incerteza 1 sigma sobre los datos x importados
-data_sigma = 2e-2
-
-
 # definicion de la func likelihood
 def log_likelihood(_coefs_):
     prediction = model(_coefs_)
+    # esta sentencia devuelve -np.inf si diverge la simulacion
+    if np.isnan(prediction[-1]):
+          return -np.inf
     ll = -0.5*np.sum(((prediction-data_x)/data_sigma)**2)
     return (ll)
 
