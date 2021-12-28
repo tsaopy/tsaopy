@@ -8,7 +8,7 @@ from oscadsf2py import simulation  # integrad numerico importado x f2py
 np.random.seed(12345)
 
 # funcion auxiliar para agregar ruido a los datos
-u_noise, n_noise = 1e-2, 2e-2
+u_noise, n_noise = 2e-1, 1.5e-1
 
 
 def noise():
@@ -31,7 +31,7 @@ x, t = simulation([x0, v0], A, B, h, n_data, na, nb),\
 
 # ### definir largo de salida de la serie de datos y agregar ruido
 # definir largo de output
-n_out = 100
+n_out = 5000
 
 # recortar la serie para que tenga el largo n_out
 step = n_data//n_out
@@ -40,13 +40,13 @@ while len(x) > n_out:
     x, t = x[:-1], t[:-1]
 
 # agregar ruido
-for _ in range(len(x)):
+for _ in range(1,len(x)):
     x[_] = x[_] + noise()
 
 # ### finalizacion
 # ver esquema de los datos
 plt.figure(figsize=(7, 5), dpi=150)
-plt.plot(t, x, color='tab:red')
+plt.plot(t, x, color='tab:red',lw=0.5)
 plt.show()
 
 # guardar los datos
