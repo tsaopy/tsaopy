@@ -1,7 +1,6 @@
 import sys
 import numpy as np
-from multiprocessing import cpu_count, Pool 
-#from pathos.multiprocessing import Pool
+from multiprocessing import cpu_count, Pool
 from matplotlib import pyplot as plt
 import emcee
 import corner
@@ -42,6 +41,7 @@ def deflatten_seq(flat_array, flat_info):
 
 # main program
 
+# parameter classes
 class FixedParameter:
     def __init__(self,value,ptype,index):
         self.value = value
@@ -56,7 +56,8 @@ class FittingParameter:
         self.index = index
         self.fixed = False
         self.prior = prior
-        
+
+
 def param_ptype_shape(params,test_ptype):
     if test_ptype == 'x0' or test_ptype == 'v0':
         sys.exit('Error: test ptype is x0 or v0.')
@@ -130,23 +131,17 @@ def fitparams_coord_info(fparams):
         indexes.append( param_cindex(_) )
         labels.append( param_names(_) )
     return indexes,labels
-
-def biasterm_prior(x):
-    if np.isfinite(x):
-        return 0.0
-    else:
-        return -np.inf
     
 class Main:
     def __init__(self,parameters,t_data,x_data,
-                 x_unc):
+                 x_unc,tsplit=4,biasterm=False):
         self.parameters = parameters
         self.t_data = t_data
         self.x_data = x_data
         self.x_unc = x_unc
         
         self.t0 = t_data[0]
-        self.tsplit = 4
+        self.tsplit = tsplit
         self.dt = (t_data[1] - self.t0)/self.tsplit
         
         self.params_to_fit = [_ for _ in parameters if not _.fixed]
@@ -177,16 +172,16 @@ class Main:
         for _ in self.parameters:
             if _.ptype == 'x0':
                 x0v0[0] = _.value
-            if _.ptype == 'v0':
+            elif _.ptype == 'v0':
                 x0v0[1] = _.value
-            if _.ptype == 'a':
+            elif _.ptype == 'a':
                 A[_.index-1] = _.value
-            if _.ptype == 'b':
+            elif _.ptype == 'b':
                 B[_.index-1] = _.value
-            if _.ptype == 'c':
+            elif _.ptype == 'c':
                 q = _.index
                 C[(q[0]-1,q[1]-1)] = _.value
-            if _.ptype == 'f':
+            elif _.ptype == 'f':
                 F[_.index-1] = _.value
         
         results = [x0v0,A,B,C,F]
@@ -235,23 +230,6 @@ class Main:
             return -np.inf
         return lp + self.log_likelihood(coefs)
     
-        
-    #def setup_sampler(self, n_walkers, n_iter):
-    #    p0 = [self.ptf_ini_values + 1e-7 * np.random.randn(self.ndim) 
-    #          for i in range(n_walkers)]
-    #    sampler = emcee.EnsembleSampler(n_walkers, self.ndim,
-    #                                        self.log_probability)
-
-    # print("Running burn-in...")
-    #  p0, _, _ = sampler.run_mcmc(p0, n_iter//5, progress=True)
-    #   sampler.reset()
-
-
-    #    print("Running production...")
-    #    pos, prob, state = sampler.run_mcmc(p0, n_iter, progress=True)
-
-    #    return sampler, pos, prob, state
-    
      def setup_sampler(self, n_walkers, n_iter, cores=(cpu_count()-2)):
          p0 = [self.ptf_ini_values + 1e-7 * np.random.randn(self.ndim) 
                for i in range(n_walkers)]
@@ -268,6 +246,15 @@ class Main:
              pos, prob, state = sampler.run_mcmc(p0, n_iter, progress=True)
 
              return sampler, pos, prob, state
+    
+    
+    # bias term
+    global biasterm_prior
+    def biasterm_prior(x):
+    if np.isfinite(x):
+        return 0.0
+    else:
+        return -np.inf
     
     # tools
     
