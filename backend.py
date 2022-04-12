@@ -1,6 +1,6 @@
 import sys
 import numpy as np
-#from multiprocessing import cpu_count, Pool 
+from multiprocessing import cpu_count, Pool 
 #from pathos.multiprocessing import Pool
 from matplotlib import pyplot as plt
 import emcee
@@ -236,38 +236,38 @@ class Main:
         return lp + self.log_likelihood(coefs)
     
         
-    def setup_sampler(self, n_walkers, n_iter):
-        p0 = [self.ptf_ini_values + 1e-7 * np.random.randn(self.ndim) 
-              for i in range(n_walkers)]
-        sampler = emcee.EnsembleSampler(n_walkers, self.ndim,
-                                            self.log_probability)
+    #def setup_sampler(self, n_walkers, n_iter):
+    #    p0 = [self.ptf_ini_values + 1e-7 * np.random.randn(self.ndim) 
+    #          for i in range(n_walkers)]
+    #    sampler = emcee.EnsembleSampler(n_walkers, self.ndim,
+    #                                        self.log_probability)
 
-        print("Running burn-in...")
-        p0, _, _ = sampler.run_mcmc(p0, n_iter//5, progress=True)
-        sampler.reset()
+    # print("Running burn-in...")
+    #  p0, _, _ = sampler.run_mcmc(p0, n_iter//5, progress=True)
+    #   sampler.reset()
 
 
-        print("Running production...")
-        pos, prob, state = sampler.run_mcmc(p0, n_iter, progress=True)
+    #    print("Running production...")
+    #    pos, prob, state = sampler.run_mcmc(p0, n_iter, progress=True)
 
-        return sampler, pos, prob, state
+    #    return sampler, pos, prob, state
     
-    # def setup_sampler(self, n_walkers, n_iter, cores=(cpu_count()-2)):
-    #     p0 = [self.ptf_ini_values + 1e-7 * np.random.randn(self.ndim) 
-    #           for i in range(n_walkers)]
-    #     with Pool(processes=cores) as pool:
-    #         sampler = emcee.EnsembleSampler(n_walkers, self.ndim,
-    #                                         self.log_probability, pool=pool)
+     def setup_sampler(self, n_walkers, n_iter, cores=(cpu_count()-2)):
+         p0 = [self.ptf_ini_values + 1e-7 * np.random.randn(self.ndim) 
+               for i in range(n_walkers)]
+         with Pool(processes=cores) as pool:
+             sampler = emcee.EnsembleSampler(n_walkers, self.ndim,
+                                             self.log_probability, pool=pool)
 
-    #         print("Running burn-in...")
-    #         p0, _, _ = sampler.run_mcmc(p0, n_iter//5, progress=True)
-    #         sampler.reset()
+             print("Running burn-in...")
+             p0, _, _ = sampler.run_mcmc(p0, n_iter//5, progress=True)
+             sampler.reset()
 
 
-    #         print("Running production...")
-    #         pos, prob, state = sampler.run_mcmc(p0, n_iter, progress=True)
+             print("Running production...")
+             pos, prob, state = sampler.run_mcmc(p0, n_iter, progress=True)
 
-    #         return sampler, pos, prob, state
+             return sampler, pos, prob, state
     
     # tools
     
