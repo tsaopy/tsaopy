@@ -9,7 +9,7 @@ from oscadsf2py import simulation  # integrad numerico importado x f2py
 np.random.seed(0o204)
 
 # funcion auxiliar para agregar ruido a los datos
-u_noise, n_noise = 1e-1, 1e-1
+u_noise, n_noise = 5e-2, 5e-2
 
 
 def noise():
@@ -21,7 +21,7 @@ def noise():
 # tf : tiempo final, A : coefs de la fuerza de damping, B : coefs de
 # la fuerza conservativa, h : paso de integracion
 
-tf, A, B, C, F, h = 50, [-5.0], [1.0],\
+tf, A, B, C, F, h = 50, [0.2], [1.0],\
                     np.array([[0.0],
                               [5.0]]), \
                     [0.0, 0.0, 0.0], 1e-4
