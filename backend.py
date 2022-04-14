@@ -102,8 +102,14 @@ def param_names(param):
     ptype,index = param.ptype,param.index
     if ptype == 'c' and len(index) == 2:
         return 'c'+str(index[0])+str(index[1])
-    elif ptype == 'a' or ptype == 'b' or ptype == 'f':
+    elif ptype == 'a' or ptype == 'b':
         return ptype+str(index)
+    elif ptype == 'f' and index==1:
+        return 'F'
+    elif ptype == 'f' and index==2:
+        return 'w'
+    elif ptype == 'f' and index==3:
+        return 'p'
     elif ptype == 'x0' or ptype == 'v0':
         return ptype
     else:
@@ -131,6 +137,12 @@ def fitparams_coord_info(fparams):
         indexes.append( param_cindex(_) )
         labels.append( param_names(_) )
     return indexes,labels
+
+def biasterm_prior(x):
+    if np.isfinite(x):
+        return 0.0
+    else:
+        return -np.inf
     
 class Main:
     def __init__(self,parameters,t_data,x_data,
@@ -154,7 +166,7 @@ class Main:
         self.fixed_values = { param_names(elem) : elem.value for elem
                              in self.parameters if elem.fixed}
         self.datalen = len(x_data)
-        self.biasterm = False
+        self.biasterm = biasterm
         
         self.parray_shape = params_array_shape(self.parameters)
         self.alens = self.parray_shape[2][0], \
@@ -230,33 +242,34 @@ class Main:
             return -np.inf
         return lp + self.log_likelihood(coefs)
     
-     def setup_sampler(self, n_walkers, n_iter, cores=(cpu_count()-2)):
-         p0 = [self.ptf_ini_values + 1e-7 * np.random.randn(self.ndim) 
+    def log_probability_bt(self,coefs):
+        return self.log_probability(coefs[:-1])
+    
+    def setup_sampler(self, n_walkers, burn_iter, main_iter, cores=(cpu_count()-2)):
+        p0 = [self.ptf_ini_values + 1e-7 * np.random.randn(self.ndim) 
                for i in range(n_walkers)]
-         with Pool(processes=cores) as pool:
+        with Pool(processes=cores) as pool:
+             if self.biasterm:
+             sampler = emcee.EnsembleSampler(n_walkers, self.ndim+1,
+                                             self.log_probability_bt, pool=pool)
+             elif not self.biasterm:
              sampler = emcee.EnsembleSampler(n_walkers, self.ndim,
                                              self.log_probability, pool=pool)
 
              print("Running burn-in...")
-             p0, _, _ = sampler.run_mcmc(p0, n_iter//5, progress=True)
+             p0, _, _ = sampler.run_mcmc(p0, burn_iter, progress=True)
              sampler.reset()
 
 
              print("Running production...")
-             pos, prob, state = sampler.run_mcmc(p0, n_iter, progress=True)
+             pos, prob, state = sampler.run_mcmc(p0, main_iter, progress=True)
 
              return sampler, pos, prob, state
     
-    
-    # bias term
-    global biasterm_prior
-    def biasterm_prior(x):
-    if np.isfinite(x):
-        return 0.0
-    else:
-        return -np.inf
-    
     # tools
+    
+    def neg_ll(self,coords):
+        return -self.log_probability(coords)
     
     def plot_measurements(self,figsize=(7,5),dpi=100):
         plt.figure(figsize=figsize,dpi=dpi)
