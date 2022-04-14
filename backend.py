@@ -57,6 +57,7 @@ class FittingParameter:
         self.fixed = False
         self.prior = prior
 
+# aux functions 2
 
 def param_ptype_shape(params,test_ptype):
     if test_ptype == 'x0' or test_ptype == 'v0':
@@ -137,14 +138,10 @@ def fitparams_coord_info(fparams):
         indexes.append( param_cindex(_) )
         labels.append( param_names(_) )
     return indexes,labels
-
-def biasterm_prior(x):
-    if np.isfinite(x):
-        return 0.0
-    else:
-        return -np.inf
     
-class Main:
+# model class
+
+class Model:
     def __init__(self,parameters,t_data,x_data,
                  x_unc,tsplit=4,biasterm=False):
         self.parameters = parameters
@@ -245,16 +242,17 @@ class Main:
     def log_probability_bt(self,coefs):
         return self.log_probability(coefs[:-1])
     
-    def setup_sampler(self, n_walkers, burn_iter, main_iter, cores=(cpu_count()-2)):
+    def setup_sampler(self, n_walkers, burn_iter, main_iter, 
+                      cores=(cpu_count()-2)):
         p0 = [self.ptf_ini_values + 1e-7 * np.random.randn(self.ndim) 
                for i in range(n_walkers)]
         with Pool(processes=cores) as pool:
-             if self.biasterm:
-             sampler = emcee.EnsembleSampler(n_walkers, self.ndim+1,
-                                             self.log_probability_bt, pool=pool)
-             elif not self.biasterm:
-             sampler = emcee.EnsembleSampler(n_walkers, self.ndim,
-                                             self.log_probability, pool=pool)
+             if not self.biasterm:
+                 sampler = emcee.EnsembleSampler(n_walkers, self.ndim,
+                                        self.log_probability, pool=pool)
+             elif self.biasterm:
+                 sampler = emcee.EnsembleSampler(n_walkers, self.ndim+1,
+                                        self.log_probability_bt, pool=pool)
 
              print("Running burn-in...")
              p0, _, _ = sampler.run_mcmc(p0, burn_iter, progress=True)
@@ -274,6 +272,13 @@ class Main:
     def plot_measurements(self,figsize=(7,5),dpi=100):
         plt.figure(figsize=figsize,dpi=dpi)
         plt.scatter(self.t_data,self.x_data,color='tab:red',s=5.0)
+        plt.show()
+        pass
+    
+    def plot_simulation(self,coords,figsize=(7,5),dpi=100):
+        plt.figure(figsize=figsize,dpi=dpi)
+        plt.scatter(self.t_data,self.x_data,color='black',s=5.0)
+        plt.plot(self.t_data,self.predict(coords),color='tab:red')
         plt.show()
         pass
 
