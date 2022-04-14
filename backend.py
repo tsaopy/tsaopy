@@ -244,8 +244,14 @@ class Model:
     
     def setup_sampler(self, n_walkers, burn_iter, main_iter, 
                       cores=(cpu_count()-2)):
-        p0 = [self.ptf_ini_values + 1e-7 * np.random.randn(self.ndim) 
-               for i in range(n_walkers)]
+
+        if self.biasterm:
+            p0 = [self.ptf_ini_values+[0] + 1e-7 * np.random.randn(self.ndim+1) 
+                  for i in range(n_walkers)]
+        elif not self.biasterm:
+            p0 = [self.ptf_ini_values + 1e-7 * np.random.randn(self.ndim) 
+                  for i in range(n_walkers)]
+        
         with Pool(processes=cores) as pool:
              if not self.biasterm:
                  sampler = emcee.EnsembleSampler(n_walkers, self.ndim,
