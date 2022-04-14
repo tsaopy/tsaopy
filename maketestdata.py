@@ -23,7 +23,7 @@ def noise():
 
 tf, A, B, C, F, h = 50, [0.2], [1.0],\
                     np.array([[0.0],
-                              [5.0]]), \
+                              [0.0]]), \
                     [0.0, 0.0, 0.0], 1e-4
 na, nb, cn, cm, n_data = len(A), len(B), len(C[:,0]), len(C[0,:]), int(tf/h)+1
 # ### hacer la simulacion
@@ -60,4 +60,3 @@ plt.show()
 
 # guardar los datos
 np.savetxt('experiment_data.txt', [[t[_], x[_]] for _ in range(len(t))])
-
