@@ -220,7 +220,6 @@ class Model:
             prob = self.priors_array[i](coefs[i])
             if prob <= 0:
                 return -np.inf
-                break
             else:
                 result = result*prob
         return np.log(result)
@@ -252,7 +251,7 @@ class Model:
              p0, _, _ = sampler.run_mcmc(p0, burn_iter, progress=True)
              sampler.reset()
 
-
+             print('')
              print("Running production...")
              pos, prob, state = sampler.run_mcmc(p0, main_iter, progress=True)
 
