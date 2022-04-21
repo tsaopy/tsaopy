@@ -224,7 +224,7 @@ class Model:
                 break
             else:
                 result = result*prob
-        return result
+        return np.log(result)
         
     def log_likelihood(self,coefs):
         prediction = self.predict(coefs)
