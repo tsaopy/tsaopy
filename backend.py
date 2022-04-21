@@ -143,7 +143,7 @@ def fitparams_coord_info(fparams):
 
 class Model:
     def __init__(self,parameters,t_data,x_data,
-                 x_unc,tsplit=4,biasterm=False):
+                 x_unc,tsplit=4):
         self.parameters = parameters
         self.t_data = t_data
         self.x_data = x_data
@@ -163,7 +163,6 @@ class Model:
         self.fixed_values = { param_names(elem) : elem.value for elem
                              in self.parameters if elem.fixed}
         self.datalen = len(x_data)
-        self.biasterm = biasterm
         
         self.parray_shape = params_array_shape(self.parameters)
         self.alens = self.parray_shape[2][0], \
@@ -239,26 +238,15 @@ class Model:
             return -np.inf
         return lp + self.log_likelihood(coefs)
     
-    def log_probability_bt(self,coefs):
-        return self.log_probability(coefs[:-1])
-    
     def setup_sampler(self, n_walkers, burn_iter, main_iter, 
                       cores=(cpu_count()-2)):
 
-        if self.biasterm:
-            p0 = [self.ptf_ini_values+[0] + 1e-7 * np.random.randn(self.ndim+1) 
-                  for i in range(n_walkers)]
-        elif not self.biasterm:
-            p0 = [self.ptf_ini_values + 1e-7 * np.random.randn(self.ndim) 
+        p0 = [self.ptf_ini_values + 1e-7 * np.random.randn(self.ndim) 
                   for i in range(n_walkers)]
         
         with Pool(processes=cores) as pool:
-             if not self.biasterm:
-                 sampler = emcee.EnsembleSampler(n_walkers, self.ndim,
+             sampler = emcee.EnsembleSampler(n_walkers, self.ndim,
                                         self.log_probability, pool=pool)
-             elif self.biasterm:
-                 sampler = emcee.EnsembleSampler(n_walkers, self.ndim+1,
-                                        self.log_probability_bt, pool=pool)
 
              print("Running burn-in...")
              p0, _, _ = sampler.run_mcmc(p0, burn_iter, progress=True)
