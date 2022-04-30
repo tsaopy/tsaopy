@@ -1,6 +1,6 @@
 # Repositorio adscripción
 
-Importante: es necesario correr los scripts desde una computadora con Linux; los paquetes `f2py`, `emcee` y `multiprocessing` no funcionan bien en Windows. 
+Importante: es necesario correr los scripts desde una computadora con Linux; los paquetes `f2py`, `emcee` y `multiprocessing` no funcionan correctamente en Windows. 
 
 ## Archivos
 
