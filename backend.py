@@ -286,3 +286,5 @@ def make_cornerplots(flat_samples,labels_list):
                         quantiles=(0.16, 0.84), show_titles=True,
                         title_fmt='.3g', truths=sample_truths,
                         truth_color='tab:red')
+    
+    plt.show()
