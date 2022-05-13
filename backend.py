@@ -5,6 +5,7 @@ from matplotlib import pyplot as plt
 import emcee
 import corner
 from oscadsf2py import simulation
+from math import sqrt
 
 # auxiliary functions
 
@@ -259,6 +260,9 @@ class Model:
     
     # tools
     
+    def update_initvals(self,newinivalues):
+        self.ptf_ini_values = newinivalues
+    
     def neg_ll(self,coords):
         return -self.log_probability(coords)
     
@@ -278,7 +282,7 @@ class Model:
     
 # extra
 
-def make_cornerplots(flat_samples,labels_list):
+def cornerplots(flat_samples,labels_list):
     dim = len(labels_list)
     sample_truths = [np.mean(flat_samples[:, _]) for _ in range(dim)]
 
@@ -286,5 +290,56 @@ def make_cornerplots(flat_samples,labels_list):
                         quantiles=(0.16, 0.84), show_titles=True,
                         title_fmt='.3g', truths=sample_truths,
                         truth_color='tab:red')
-    
     plt.show()
+    pass
+
+def traceplots(samples,labels_list):
+    dim = len(labels_list)
+    fig, axes = plt.subplots(3, figsize=(10, 7), dpi=100, sharex=True)
+    plt.suptitle('parameter traces')
+    for i in range(dim):
+        ax = axes[i]
+        ax.plot(samples[:, :, i], "k", alpha=0.3)
+        ax.set_xlim(0, len(samples))
+        ax.set_ylabel(labels_list[i])
+        ax.yaxis.set_label_coords(-0.1, 0.5)
+    
+    axes[-1].set_xlabel("step number");
+    plt.show()
+    pass
+
+def autocplots(flat_samples,labels_list):
+    dim,clen = len(labels_list),len(flat_samples)
+    autocfs = np.array([emcee.autocorr.function_1d(flat_samples[:,_])
+               for _ in range(dim)])
+    step_slice = clen//100
+    fig, axes = plt.subplots(dim, figsize=(10, 7), dpi=200, sharex=True)
+    plt.suptitle('autocorrelation functions')
+    for i in range(dim):
+        ax = axes[i]
+        ax.bar(range(0,clen,step_slice),autocfs[i,::step_slice],
+               width=0.8*clen/step_slice)
+        ax.set_ylabel(labels_list[i])
+        ax.yaxis.set_label_coords(-0.1, 0.5)
+    
+    axes[-1].set_xlabel("step number");
+    plt.show()
+    pass
+
+class uniform_prior:
+    def __init__(self, xmin, xmax):
+        self.xmin = xmin
+        self.xmax = xmax
+
+    def __call__(self, x):
+        p = 1 if x < self.xmax and x > self.xmin else 0
+        return p/(self.xmax-self.xmin)
+
+class normal_prior:
+    def __init__(self, x0, sigma):
+        self.x0 = x0
+        self.sigma = sigma
+
+    def __call__(self, x):
+        p = np.exp(-0.5*((x-self.x0)/self.sigma)**2)/sqrt(2*np.pi)/self.sigma
+        return p
