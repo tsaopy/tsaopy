@@ -7,41 +7,6 @@ import corner
 from oscadsf2py import simulation,simulationv
 from math import sqrt
 
-# auxiliary functions
-
-def flatten_seq(array):
-    result, shapes_info = [],[]
-    for array_element in array:
-        aux = np.array(array_element)
-        shapes_info.append(aux.shape)
-        aux_flattened = np.hstack(aux)
-        result = result + list(aux_flattened)
-    return np.array(result), shapes_info
-
-def reshape_matrix(elements, shape):
-    if not len(shape)==2:
-        sys.exit('Error: array to reshape is not a matrix.')
-    ilen,jlen = shape
-    result = np.zeros(shape)
-    for i in range(ilen):
-        for j in range(jlen):
-            result[i,j] = elements[j+i*jlen]
-    return result
-
-def deflatten_seq(flat_array, flat_info):
-    result, current_index = [],0
-    for step_info in flat_info:
-        index_dif = np.prod(step_info)
-        step_elements = flat_array[current_index:current_index+index_dif]
-        current_index = current_index + index_dif
-        if len(step_info)==2:
-            result.append(reshape_matrix(step_elements,step_info))
-        elif len(step_info)==1:
-            result.append(step_elements)
-    return result
-
-# main program
-
 # parameter classes
 class FixedParameter:
     def __init__(self,value,ptype,index):
