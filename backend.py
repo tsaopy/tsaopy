@@ -4,7 +4,7 @@ from multiprocessing import cpu_count, Pool
 from matplotlib import pyplot as plt
 import emcee
 import corner
-from oscadsf2py import simulation
+from oscadsf2py import simulation,simulationv
 from math import sqrt
 
 # auxiliary functions
@@ -255,9 +255,9 @@ class Model:
              pos, prob, state = sampler.run_mcmc(p0, main_iter, progress=True)
 
              return sampler, pos, prob, state
-    
+         
     # tools
-    
+         
     def update_initvals(self,newinivalues):
         self.ptf_ini_values = newinivalues
     
@@ -276,7 +276,96 @@ class Model:
         plt.plot(self.t_data,self.predict(coords),color='tab:red')
         plt.show()
         pass
+   
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
+class VelocityModel(Model):
+    def __init__(self,parameters,t_data,x_data,v_data,
+                 x_unc,v_unc,tsplit=4):
+        super().__init__(parameters,t_data,x_data,x_unc)
+        self.tsplit = tsplit
+        self.v_data = v_data
+        self.v_unc = v_unc
+        self.dt = (t_data[1] - self.t0)/self.tsplit
+            
+    def predict(self,coords):
+        
+        dt,tsplit,datalen = self.dt,self.tsplit,self.datalen
+        na,nb,cn,cm, = self.alens
+            
+        x0v0_simu, A_simu, B_simu, C_simu, F_simu = \
+            self.setup_simulation_arrays(coords)
+        
+        return simulationv(x0v0_simu, A_simu, B_simu, C_simu, F_simu, dt,
+                          tsplit*datalen, na, nb, cn, cm)[::tsplit]
+        
+    def log_likelihood(self,coefs):
+        prediction = self.predict(coefs)
+        predx, predv = prediction[:,0], prediction[:,1]
+        if not np.isfinite(predv[-1]):
+              return -np.inf
+        ll = -0.5*np.sum(((predx-self.x_data)/self.x_unc)**2) \
+            -0.5*np.sum(((predv-self.v_data)/self.v_unc)**2)
+        return ll
+    
+    def log_probability(self,coefs):
+        lp = self.log_prior(coefs)
+        if not np.isfinite(lp):
+            return -np.inf
+        return lp + self.log_likelihood(coefs)
+    
+    def setup_sampler(self, n_walkers, burn_iter, main_iter, 
+                      cores=(cpu_count()-2)):
+
+        p0 = [self.ptf_ini_values + 1e-7 * np.random.randn(self.ndim) 
+                  for i in range(n_walkers)]
+        
+        with Pool(processes=cores) as pool:
+             sampler = emcee.EnsembleSampler(n_walkers, self.ndim,
+                                        self.log_probability, pool=pool)
+
+             print("Running burn-in...")
+             p0, _, _ = sampler.run_mcmc(p0, burn_iter, progress=True)
+             sampler.reset()
+
+             print('')
+             print("Running production...")
+             pos, prob, state = sampler.run_mcmc(p0, main_iter, progress=True)
+
+             return sampler, pos, prob, state    
+    
+  ###################################################################  
+    
+    # tools
+    
+    def neg_ll(self,coords):
+        return -self.log_probability(coords)
+    
+    def plot_measurements_x(self,figsize=(7,5),dpi=100):
+        plt.figure(figsize=figsize,dpi=dpi)
+        plt.scatter(self.t_data,self.x_data,color='tab:red',s=5.0)
+        plt.show()
+        pass
+    
+    def plot_measurements_v(self,figsize=(7,5),dpi=100):
+        plt.figure(figsize=figsize,dpi=dpi)
+        plt.scatter(self.t_data,self.v_data,color='tab:red',s=5.0)
+        plt.show()
+        pass
+    
+    def plot_simulation_x(self,coords,figsize=(7,5),dpi=100):
+        plt.figure(figsize=figsize,dpi=dpi)
+        plt.scatter(self.t_data,self.x_data,color='black',s=5.0)
+        plt.plot(self.t_data,self.predict(coords)[:,0],color='tab:red')
+        plt.show()
+        pass
+
+    def plot_simulation_v(self,coords,figsize=(7,5),dpi=100):
+        plt.figure(figsize=figsize,dpi=dpi)
+        plt.scatter(self.t_data,self.v_data,color='black',s=5.0)
+        plt.plot(self.t_data,self.predict(coords)[:,1],color='tab:red')
+        plt.show()
+        pass
     
 # extra
 
