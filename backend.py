@@ -295,7 +295,7 @@ def cornerplots(flat_samples,labels_list):
 
 def traceplots(samples,labels_list):
     dim = len(labels_list)
-    fig, axes = plt.subplots(3, figsize=(10, 7), dpi=100, sharex=True)
+    fig, axes = plt.subplots(dim, figsize=(10, 7), dpi=100, sharex=True)
     plt.suptitle('parameter traces')
     for i in range(dim):
         ax = axes[i]
