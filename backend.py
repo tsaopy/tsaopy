@@ -50,11 +50,9 @@ class FixedParameter:
         self.index = index
         self.fixed = True
         
-class FittingParameter:
+class FittingParameter(FixedParameter):
     def __init__(self,value,ptype,index,prior):
-        self.value = value
-        self.ptype = ptype
-        self.index = index
+        super().__init__(value,ptype,index)
         self.fixed = False
         self.prior = prior
 
