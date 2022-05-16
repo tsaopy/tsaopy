@@ -123,6 +123,40 @@ return
 end subroutine simulation
 
 
+!--------------------------------------------------------
+!
+subroutine simulationv(x_in,a_in,b_in,c_in,f_in,result,dt,nsimu,na,nb,cn,cm)
+implicit none
+! inout vars
+integer,intent(in) :: na,nb,cn,cm,nsimu
+real(8),intent(in) :: dt
+real(8),intent(in),dimension(2) :: x_in
+real(8),intent(in),dimension(3) :: f_in
+real(8),intent(in),dimension(na) :: a_in
+real(8),intent(in),dimension(nb) :: b_in
+real(8),intent(in),dimension(cn,cm) :: c_in
+real(8),intent(out),dimension(nsimu,2) :: result
+! aux vars
+integer :: i
+real(8) :: t
+real(8),dimension(2) :: xaux0,xauxf
+
+t = 0
+result(1,1) = x_in(1)
+result(1,2) = x_in(2)
+xaux0 = x_in
+do i=2,nsimu
+    call rk4(xaux0,a_in,b_in,c_in,f_in,xauxf,dt,na,nb,cn,cm,t)
+    result(i,1) = xauxf(1)
+    result(i,2) = xauxf(2)
+    xaux0 = xauxf
+    t = t + dt
+end do
+
+return
+end subroutine simulationv
+
+
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
