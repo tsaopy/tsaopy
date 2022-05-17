@@ -1,5 +1,3 @@
-# Repositorio adscripción
-
 Importante: es necesario correr los scripts desde una computadora con Linux.
 
 Es necesario que haya un compilador de fortran instalado, por ejemplo correr `sudo apt-get install gfortran`. También son necesarios los paquetes de Python `emcee`, `multiprocessing` y `corner`.
