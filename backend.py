@@ -4,43 +4,8 @@ from multiprocessing import cpu_count, Pool
 from matplotlib import pyplot as plt
 import emcee
 import corner
-from oscadsf2py import simulation
+from oscadsf2py import simulation,simulationv
 from math import sqrt
-
-# auxiliary functions
-
-def flatten_seq(array):
-    result, shapes_info = [],[]
-    for array_element in array:
-        aux = np.array(array_element)
-        shapes_info.append(aux.shape)
-        aux_flattened = np.hstack(aux)
-        result = result + list(aux_flattened)
-    return np.array(result), shapes_info
-
-def reshape_matrix(elements, shape):
-    if not len(shape)==2:
-        sys.exit('Error: array to reshape is not a matrix.')
-    ilen,jlen = shape
-    result = np.zeros(shape)
-    for i in range(ilen):
-        for j in range(jlen):
-            result[i,j] = elements[j+i*jlen]
-    return result
-
-def deflatten_seq(flat_array, flat_info):
-    result, current_index = [],0
-    for step_info in flat_info:
-        index_dif = np.prod(step_info)
-        step_elements = flat_array[current_index:current_index+index_dif]
-        current_index = current_index + index_dif
-        if len(step_info)==2:
-            result.append(reshape_matrix(step_elements,step_info))
-        elif len(step_info)==1:
-            result.append(step_elements)
-    return result
-
-# main program
 
 # parameter classes
 class FixedParameter:
@@ -50,11 +15,9 @@ class FixedParameter:
         self.index = index
         self.fixed = True
         
-class FittingParameter:
+class FittingParameter(FixedParameter):
     def __init__(self,value,ptype,index,prior):
-        self.value = value
-        self.ptype = ptype
-        self.index = index
+        super().__init__(value,ptype,index)
         self.fixed = False
         self.prior = prior
 
@@ -257,9 +220,9 @@ class Model:
              pos, prob, state = sampler.run_mcmc(p0, main_iter, progress=True)
 
              return sampler, pos, prob, state
-    
+         
     # tools
-    
+         
     def update_initvals(self,newinivalues):
         self.ptf_ini_values = newinivalues
     
@@ -278,7 +241,96 @@ class Model:
         plt.plot(self.t_data,self.predict(coords),color='tab:red')
         plt.show()
         pass
+   
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
+class VelocityModel(Model):
+    def __init__(self,parameters,t_data,x_data,v_data,
+                 x_unc,v_unc,tsplit=4):
+        super().__init__(parameters,t_data,x_data,x_unc)
+        self.tsplit = tsplit
+        self.v_data = v_data
+        self.v_unc = v_unc
+        self.dt = (t_data[1] - self.t0)/self.tsplit
+            
+    def predict(self,coords):
+        
+        dt,tsplit,datalen = self.dt,self.tsplit,self.datalen
+        na,nb,cn,cm, = self.alens
+            
+        x0v0_simu, A_simu, B_simu, C_simu, F_simu = \
+            self.setup_simulation_arrays(coords)
+        
+        return simulationv(x0v0_simu, A_simu, B_simu, C_simu, F_simu, dt,
+                          tsplit*datalen, na, nb, cn, cm)[::tsplit]
+        
+    def log_likelihood(self,coefs):
+        prediction = self.predict(coefs)
+        predx, predv = prediction[:,0], prediction[:,1]
+        if not np.isfinite(predv[-1]):
+              return -np.inf
+        ll = -0.5*np.sum(((predx-self.x_data)/self.x_unc)**2) \
+            -0.5*np.sum(((predv-self.v_data)/self.v_unc)**2)
+        return ll
+    
+    def log_probability(self,coefs):
+        lp = self.log_prior(coefs)
+        if not np.isfinite(lp):
+            return -np.inf
+        return lp + self.log_likelihood(coefs)
+    
+    def setup_sampler(self, n_walkers, burn_iter, main_iter, 
+                      cores=(cpu_count()-2)):
+
+        p0 = [self.ptf_ini_values + 1e-7 * np.random.randn(self.ndim) 
+                  for i in range(n_walkers)]
+        
+        with Pool(processes=cores) as pool:
+             sampler = emcee.EnsembleSampler(n_walkers, self.ndim,
+                                        self.log_probability, pool=pool)
+
+             print("Running burn-in...")
+             p0, _, _ = sampler.run_mcmc(p0, burn_iter, progress=True)
+             sampler.reset()
+
+             print('')
+             print("Running production...")
+             pos, prob, state = sampler.run_mcmc(p0, main_iter, progress=True)
+
+             return sampler, pos, prob, state    
+    
+  ###################################################################  
+    
+    # tools
+    
+    def neg_ll(self,coords):
+        return -self.log_probability(coords)
+    
+    def plot_measurements_x(self,figsize=(7,5),dpi=100):
+        plt.figure(figsize=figsize,dpi=dpi)
+        plt.scatter(self.t_data,self.x_data,color='tab:red',s=5.0)
+        plt.show()
+        pass
+    
+    def plot_measurements_v(self,figsize=(7,5),dpi=100):
+        plt.figure(figsize=figsize,dpi=dpi)
+        plt.scatter(self.t_data,self.v_data,color='tab:red',s=5.0)
+        plt.show()
+        pass
+    
+    def plot_simulation_x(self,coords,figsize=(7,5),dpi=100):
+        plt.figure(figsize=figsize,dpi=dpi)
+        plt.scatter(self.t_data,self.x_data,color='black',s=5.0)
+        plt.plot(self.t_data,self.predict(coords)[:,0],color='tab:red')
+        plt.show()
+        pass
+
+    def plot_simulation_v(self,coords,figsize=(7,5),dpi=100):
+        plt.figure(figsize=figsize,dpi=dpi)
+        plt.scatter(self.t_data,self.v_data,color='black',s=5.0)
+        plt.plot(self.t_data,self.predict(coords)[:,1],color='tab:red')
+        plt.show()
+        pass
     
 # extra
 
