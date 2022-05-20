@@ -4,7 +4,7 @@ import backend as bend
 # load data
 data = np.loadtxt('experiment_data.txt')
 data_t,data_x,data_v = data[:,0],data[:,1],data[:,2]
-data_x_sigma,data_v_sigma = 0.3,0.25
+data_x_sigma,data_v_sigma = 0.4,0.5
 
 # priors
 
