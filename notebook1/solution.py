@@ -3,8 +3,8 @@ import backend as bend
 
 # load data
 data = np.loadtxt('experiment_data.txt')
-data_t,data_x,data_v = data[:,0],data[:,1],data[:,2]
-data_x_sigma,data_v_sigma = 0.3,0.25
+data_t,data_x = data[:,0],data[:,1]
+data_x_sigma,data_v_sigma = 0.3
 
 # priors
 
@@ -30,18 +30,6 @@ sampler,_,_,_ = model1.setup_sampler(200, 300, 300)
 samples, flat_samples = sampler.get_chain(), sampler.get_chain(flat=True)
 
 label_list = model1.params_labels
-bend.cornerplots(flat_samples,label_list)
-bend.traceplots(samples,label_list)
-bend.autocplots(flat_samples,label_list)
-
-# model 2
-
-model2 = bend.VelocityModel(parameters,data_t,data_x,data_v,
-                            data_x_sigma,data_v_sigma)
-
-sampler,_,_,_ = model2.setup_sampler(200, 300, 300)
-samples, flat_samples = sampler.get_chain(), sampler.get_chain(flat=True)
-
 bend.cornerplots(flat_samples,label_list)
 bend.traceplots(samples,label_list)
 bend.autocplots(flat_samples,label_list)
