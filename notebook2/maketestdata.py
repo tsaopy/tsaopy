@@ -48,8 +48,8 @@ while len(t) > n_out:
 
 # add noise
 for i in range(n_out):
-    x[i] = x[i] + noise()*0.5
-    v[i] = v[i] + noise()
+    x[i] = x[i] + noise()*1
+    v[i] = v[i] + noise()*2
     
 # plot results
 plt.figure(figsize=(7, 5), dpi=150)
