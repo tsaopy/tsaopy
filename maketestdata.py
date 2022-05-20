@@ -1,56 +1,62 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from oscadsf2py import simulationv  # f2py numerical simulation
 
-# set random seed
-np.random.seed(0o204)
+# numerical solver
+def rk4(f,x,dx):
+    k1 = dx*f(x)
+    k2 = dx*f(x+0.5*k1)
+    k3 = dx*f(x+0.5*k2)
+    k4 = dx*f(x+k3)
+    return x + (k1+k4+2*k2+2*k3)/6
 
-# aux function to add noise
-u_noise, n_noise = 5e-2, 5e-2
-def noise():
-    return np.random.normal(0, n_noise)\
-           + np.random.uniform(-u_noise, u_noise)
+def solve_ivp(f,x0,t0tf,dt):
+    P = x0
+    t,tf = t0tf
+    x,v = P
+    result = [[t,x,v]]
+    while t < tf:
+        P = rk4(f,P,dt)
+        t = t + dt
+        x,v = P
+        result.append([t,x,v])
+    return np.array(result)
 
+# aux noise function
+np.random.seed(205)
+u_noise,n_noise = 1e-1,1e-1
+noise = lambda : np.random.uniform(-u_noise,u_noise) +\
+    np.random.normal(0,n_noise)
 
-# ### simulation parameters
-# tf : final time, A : damping coefs, B : potential coefs
-# C : mixed coefs matrix, F : driving force, h : integration timestep
+# simulation
+mu = 1.5
+deriv = lambda X : np.array([  X[1],  mu*X[1]*(1-X[0]**2)-X[0]  ])
 
-tf, A, B, C, F, h = 50, [0.2], [1.0],\
-                    np.array([[0.0],
-                              [0.0]]), \
-                    [0.0, 0.0, 0.0], 1e-4
-na, nb, cn, cm, n_data = len(A), len(B), len(C[:,0]), len(C[0,:]), int(tf/h)+1
+X0 = np.array([2.0,0.0])
 
-# init conds
-x0, v0 = 1.0, 0.0
-# do simulation
-xv_results, t = simulationv([x0, v0], A, B, C, F, h, n_data, na, nb, cn, cm),\
-       np.linspace(0, tf, n_data)
-       
-x,v = xv_results[:,0], xv_results[:,1]
+result = solve_ivp(deriv,X0,(0,30),0.01)
 
-# ### thin data arrays to given output length
-# definir largo de output
+t,x,v = result[:,0],result[:,1],result[:,2]
 
+# fix time series length
+n_data = len(t)
 n_out = 1000
 step = n_data//n_out
 
 x, v, t = x[::step], v[::step], t[::step]
-while len(x) > n_out:
+while len(t) > n_out:
     x, v, t = x[:-1], v[:-1], t[:-1]
 
 # add noise
-for _ in range(len(x)):
-    x[_] = x[_] + noise()
-    v[_] = v[_] + noise()/1.2
-
-# plot data
-plt.figure(figsize=(15, 5), dpi=150)
-plt.plot(t, x, lw=0.5, color = 'tab:red', label='position')
+for i in range(n_out):
+    x[i] = x[i] + noise()*0.5
+    v[i] = v[i] + noise()
+    
+# plot results
+plt.figure(figsize=(7, 5), dpi=150)
+plt.plot(t, x, color = 'tab:red', label='position')
 plt.plot(t, v, color='tab:purple', label='velocity')
 plt.legend()
 plt.show()
 
-# save data
-np.savetxt('experiment_data.txt', [[t[_], x[_], v[_]] for _ in range(len(t))])
+# save results
+np.savetxt('experiment_data.txt', [[t[_], x[_], v[_]] for _ in range(n_out)])
