@@ -33,3 +33,6 @@ label_list = model1.params_labels
 bend.cornerplots(flat_samples,label_list)
 bend.traceplots(samples,label_list)
 bend.autocplots(flat_samples,label_list)
+
+solutions = [np.mean(flat_samples[:,_]) for _ in range(len(parameters))]
+model1.plot_simulation(solutions)
