@@ -32,6 +32,7 @@ model2 = bend.VelocityModel(parameters,data_t,data_x,data_v,
 sampler,_,_,_ = model2.setup_sampler(200, 300, 300)
 samples, flat_samples = sampler.get_chain(), sampler.get_chain(flat=True)
 
+label_list = model2.params_labels
 bend.cornerplots(flat_samples,label_list)
 bend.traceplots(samples,label_list)
 bend.autocplots(flat_samples,label_list)
