@@ -318,6 +318,14 @@ class VelocityModel(Model):
         plt.show()
         pass
     
+    def plot_simulation(self,coords,figsize=(7,5),dpi=100):
+        plt.figure(figsize=figsize,dpi=dpi)
+        plt.scatter(self.t_data,self.x_data,color='black',s=5.0)
+        plt.scatter(self.t_data,self.v_data,color='black',s=5.0)
+        plt.plot(self.t_data,self.predict(coords),color='tab:red')
+        plt.show()
+        pass
+    
     def plot_simulation_x(self,coords,figsize=(7,5),dpi=100):
         plt.figure(figsize=figsize,dpi=dpi)
         plt.scatter(self.t_data,self.x_data,color='black',s=5.0)
