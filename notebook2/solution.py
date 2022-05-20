@@ -1,5 +1,4 @@
 import numpy as np
-import numpy as np
 import backend as bend
 
 # load data
@@ -9,16 +8,16 @@ data_x_sigma,data_v_sigma = 0.3,0.4
 
 # priors
 
-x0_prior = bend.normal_prior(2.0,5.0)
-v0_prior = bend.normal_prior(0.0,5.0)
-a1_prior = bend.normal_prior(0.0,30.0)
-a2_prior = bend.normal_prior(0.0,30.0)
-b1_prior = bend.normal_prior(2.5,30.0)
-b2_prior = bend.normal_prior(0.0,30.0)
-c11_prior = bend.normal_prior(0.0,30.0)
-c12_prior = bend.normal_prior(0.0,30.0)
-c21_prior = bend.normal_prior(0.0,30.0)
-c22_prior = bend.normal_prior(0.0,30.0)
+x0_prior = bend.normal_prior(2.0,100.0)
+v0_prior = bend.normal_prior(0.0,100.0)
+a1_prior = bend.normal_prior(0.0,100.0)
+a2_prior = bend.normal_prior(0.0,100.0)
+b1_prior = bend.normal_prior(0.0,100.0)
+b2_prior = bend.normal_prior(0.0,100.0)
+c11_prior = bend.normal_prior(0.0,100.0)
+c12_prior = bend.normal_prior(0.0,100.0)
+c21_prior = bend.normal_prior(0.0,100.0)
+c22_prior = bend.normal_prior(0.0,100.0)
 
 
 # parameters
@@ -42,7 +41,7 @@ parameters = [x0,v0,a1,a2,b1,b2,c11,c12,c21,c22]
 model2 = bend.VelocityModel(parameters,data_t,data_x,data_v,
                             data_x_sigma,data_v_sigma)
 
-sampler,_,_,_ = model2.setup_sampler(200, 2000, 500)
+sampler,_,_,_ = model2.setup_sampler(200, 1, 1000)
 samples, flat_samples = sampler.get_chain(), sampler.get_chain(flat=True)
 
 label_list = model2.params_labels
