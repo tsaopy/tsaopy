@@ -8,7 +8,7 @@ We are working on a Github page with more info at: https://tsaopy.github.io/.
 Script containing main algorithms.
 
 ### integrator_f2py
-Script containing numerical integrators written in Fortran and wrapped to be used in Python by the backend. User should only be running this script once to build the `f2py` module that backend uses, and then leave this file alone. We will not be giving details of how this or the Fortran code work, as this escapes the original purpose of making it as simple as possible to the user.
+Script containing numerical integrators written in Fortran and wrapped to be used in Python by the backend. User should only be running this script once to build the `f2py` module that backend uses, and then leave this file alone. We will not be giving details of how this or the Fortran code work, as this escapes the original purpose of making it as simple as possible for the user.
 
 ## notebooks
 
