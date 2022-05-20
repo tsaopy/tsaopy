@@ -9,16 +9,16 @@ data_x_sigma,data_v_sigma = 0.3,0.4
 
 # priors
 
-x0_prior = bend.normal_prior(2.0,1.0)
-v0_prior = bend.normal_prior(0.0,1.0)
-a1_prior = bend.normal_prior(0.0,5.0)
-a2_prior = bend.normal_prior(0.0,5.0)
-b1_prior = bend.normal_prior(2.5,5.0)
-b2_prior = bend.normal_prior(0.0,5.0)
-c11_prior = bend.normal_prior(0.0,5.0)
-c12_prior = bend.normal_prior(0.0,5.0)
-c21_prior = bend.normal_prior(0.0,5.0)
-c22_prior = bend.normal_prior(0.0,5.0)
+x0_prior = bend.normal_prior(2.0,5.0)
+v0_prior = bend.normal_prior(0.0,5.0)
+a1_prior = bend.normal_prior(0.0,30.0)
+a2_prior = bend.normal_prior(0.0,30.0)
+b1_prior = bend.normal_prior(2.5,30.0)
+b2_prior = bend.normal_prior(0.0,30.0)
+c11_prior = bend.normal_prior(0.0,30.0)
+c12_prior = bend.normal_prior(0.0,30.0)
+c21_prior = bend.normal_prior(0.0,30.0)
+c22_prior = bend.normal_prior(0.0,30.0)
 
 
 # parameters
