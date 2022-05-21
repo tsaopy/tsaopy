@@ -311,6 +311,16 @@ class VelocityModel(Model):
     def neg_ll(self,coords):
         return -self.log_probability(coords)
     
+    def plot_measurements(self,figsize=(7,5),dpi=150):
+        plt.figure(figsize=figsize,dpi=dpi)
+        plt.scatter(self.t_data,self.x_data,color='black',s=1.0,
+                    label='x measurements')
+        plt.scatter(self.t_data,self.v_data,color='tab:blue',s=1.0,
+                    label='v measurements')
+        plt.legend()
+        plt.show()
+        pass
+    
     def plot_measurements_x(self,figsize=(7,5),dpi=150):
         plt.figure(figsize=figsize,dpi=dpi)
         plt.scatter(self.t_data,self.x_data,color='black',s=1.0,
