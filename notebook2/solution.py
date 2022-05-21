@@ -8,8 +8,8 @@ data_x_sigma,data_v_sigma = 0.3,0.4
 
 # priors
 
-x0_prior = bend.uniform_prior(1.9,2.1)
-v0_prior = bend.uniform_prior(-0.75,0.75)
+x0_prior = bend.uniform_prior(1.8,2.2)
+v0_prior = bend.uniform_prior(-0.9,0.9)
 a1_prior = bend.normal_prior(-1.9,2.0)
 b1_prior = bend.normal_prior(0.9,0.3)
 c21_prior = bend.normal_prior(1.6,1.5)
