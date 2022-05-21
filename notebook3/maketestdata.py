@@ -28,12 +28,12 @@ noise = lambda : np.random.uniform(-u_noise,u_noise) +\
     np.random.normal(0,n_noise)
 
 # simulation
-mu = 1.5
-deriv = lambda X : np.array([  X[1],  mu*X[1]*(1-X[0]**2)-X[0]  ])
+k,g = 1, 0.5
+deriv = lambda X : np.array([  X[1],  np.sin(X[0])*(k*np.cos(X[0])-g) ])
 
-X0 = np.array([2.0,0.0])
+X0 = np.array([1.0,-0.5])
 
-result = solve_ivp(deriv,X0,(0,30),0.01)
+result = solve_ivp(deriv,X0,(0,120),0.01)
 
 t,x,v = result[:,0],result[:,1],result[:,2]
 
@@ -48,8 +48,8 @@ while len(t) > n_out:
 
 # add noise
 for i in range(n_out):
-    x[i] = x[i] + noise()*1
-    v[i] = v[i] + noise()*2
+    x[i] = x[i] + noise()*2
+    v[i] = v[i] + noise()*1.2
     
 # plot results
 plt.figure(figsize=(7, 5), dpi=150)
