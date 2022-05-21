@@ -413,7 +413,7 @@ def autocplots(flat_samples,labels_list):
         ax.set_ylabel(labels_list[i])
         ax.yaxis.set_label_coords(-0.1, 0.5)
     
-    axes[-1].set_xlabel("step number");
+    axes[-1].set_xlabel("sample number");
     plt.show()
     pass
 
