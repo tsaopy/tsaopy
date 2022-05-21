@@ -401,15 +401,16 @@ def traceplots(samples,labels_list):
 
 def autocplots(flat_samples,labels_list):
     dim,clen = len(labels_list),len(flat_samples)
-    autocfs = np.array([emcee.autocorr.function_1d(flat_samples[:,_])
-               for _ in range(dim)])
     step_slice = clen//100
+    aux_dom = range(0,clen,step_slice)
+    aux_fl = flat_samples[::step_slice]
+    autocfs = np.array([emcee.autocorr.function_1d(aux_fl[:,_])
+               for _ in range(dim)])
     fig, axes = plt.subplots(dim, figsize=(10, 7), dpi=200, sharex=True)
     plt.suptitle('autocorrelation functions')
     for i in range(dim):
         ax = axes[i]
-        ax.bar(range(0,clen,step_slice),autocfs[i,::step_slice],
-               width=0.8*clen/step_slice)
+        ax.stem(aux_dom,autocfs[i,:],markerfmt='')
         ax.set_ylabel(labels_list[i])
         ax.yaxis.set_label_coords(-0.1, 0.5)
     
