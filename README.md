@@ -19,4 +19,4 @@ Script that produces a simulated time series from a differential equation define
 Script with a `TSAOpy` solution of the parameter fitting problem for the time series made in maketestdata. It's a shortened and concise version of the notebooks we will be explaining in the Gihub page. It should give a good solution as well as plots to analyze the results by just running the full script. 
 
 1. Notebook 1 proposes a simple linear damped oscillator.
-2. Notebook 2 proposes a Van der Pol oscillator, and includes fitting to the $(t,v)$ data on addition to the already in use $(t,x)$ data.
+2. Notebook 2 proposes a Van der Pol oscillator, and includes fitting to the v(t) data on addition to the already in use x(t) data.
