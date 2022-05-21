@@ -231,14 +231,19 @@ class Model:
     
     def plot_measurements(self,figsize=(7,5),dpi=150):
         plt.figure(figsize=figsize,dpi=dpi)
-        plt.scatter(self.t_data,self.x_data,color='tab:red',s=1.0)
+        plt.scatter(self.t_data,self.x_data,color='black',s=1.0,
+                    label='x measurements')
+        plt.legend()
         plt.show()
         pass
     
     def plot_simulation(self,coords,figsize=(7,5),dpi=150):
         plt.figure(figsize=figsize,dpi=dpi)
-        plt.scatter(self.t_data,self.x_data,color='black',s=1.0)
-        plt.plot(self.t_data,self.predict(coords),color='tab:red')
+        plt.scatter(self.t_data,self.x_data,color='black',s=1.0,
+                    label='x measurements')
+        plt.plot(self.t_data,self.predict(coords)[:,0],color='tab:red',
+                    label='x simulation')
+        plt.legend()
         plt.show()
         pass
    
@@ -308,35 +313,51 @@ class VelocityModel(Model):
     
     def plot_measurements_x(self,figsize=(7,5),dpi=150):
         plt.figure(figsize=figsize,dpi=dpi)
-        plt.scatter(self.t_data,self.x_data,color='tab:red',s=1.0)
+        plt.scatter(self.t_data,self.x_data,color='black',s=1.0,
+                    label='x measurements')
+        plt.legend()
         plt.show()
         pass
     
     def plot_measurements_v(self,figsize=(7,5),dpi=150):
         plt.figure(figsize=figsize,dpi=dpi)
-        plt.scatter(self.t_data,self.v_data,color='tab:red',s=1.0)
+        plt.scatter(self.t_data,self.v_data,color='tab:blue',s=1.0,
+                    label='v measurements')
+        plt.legend()
         plt.show()
         pass
     
     def plot_simulation(self,coords,figsize=(7,5),dpi=150):
         plt.figure(figsize=figsize,dpi=dpi)
-        plt.scatter(self.t_data,self.x_data,color='black',s=1.0)
-        plt.scatter(self.t_data,self.v_data,color='black',s=1.0)
-        plt.plot(self.t_data,self.predict(coords),color='tab:red')
+        plt.scatter(self.t_data,self.x_data,color='black',s=1.0,
+                    label='x measurements')
+        plt.scatter(self.t_data,self.v_data,color='tab:blue',s=1.0,
+                    label='v measurements')
+        plt.plot(self.t_data,self.predict(coords)[:,0],color='tab:red',
+                    label='x simulation')
+        plt.plot(self.t_data,self.predict(coords)[:,1],color='tab:purple',
+                    label='v simulation')
+        plt.legend()
         plt.show()
         pass
     
     def plot_simulation_x(self,coords,figsize=(7,5),dpi=150):
         plt.figure(figsize=figsize,dpi=dpi)
-        plt.scatter(self.t_data,self.x_data,color='black',s=1.0)
-        plt.plot(self.t_data,self.predict(coords)[:,0],color='tab:red')
+        plt.scatter(self.t_data,self.x_data,color='black',s=1.0,
+                    label='x measurements')
+        plt.plot(self.t_data,self.predict(coords)[:,0],color='tab:red',
+                    label='x simulation')
+        plt.legend()
         plt.show()
         pass
 
     def plot_simulation_v(self,coords,figsize=(7,5),dpi=150):
         plt.figure(figsize=figsize,dpi=dpi)
-        plt.scatter(self.t_data,self.v_data,color='black',s=1.0)
-        plt.plot(self.t_data,self.predict(coords)[:,1],color='tab:red')
+        plt.scatter(self.t_data,self.v_data,color='tab:blue',s=1.0,
+                    label='v measurements')
+        plt.plot(self.t_data,self.predict(coords)[:,1],color='tab:purple',
+                    label='v simulation')
+        plt.legend()
         plt.show()
         pass
     
