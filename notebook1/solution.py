@@ -26,7 +26,7 @@ parameters = [x0,v0,a1,b1]
 
 model1 = bend.Model(parameters,data_t,data_x,data_x_sigma)
 
-sampler,_,_,_ = model1.setup_sampler(200, 300, 300)
+sampler,_,_,_ = model1.setup_sampler(200, 300, 1200)
 samples, flat_samples = sampler.get_chain(), sampler.get_chain(flat=True)
 
 label_list = model1.params_labels
