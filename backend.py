@@ -241,7 +241,7 @@ class Model:
         plt.figure(figsize=figsize,dpi=dpi)
         plt.scatter(self.t_data,self.x_data,color='black',s=1.0,
                     label='x measurements')
-        plt.plot(self.t_data,self.predict(coords)[:,0],color='tab:red',
+        plt.plot(self.t_data,self.predict(coords),color='tab:red',
                     label='x simulation')
         plt.legend()
         plt.show()
