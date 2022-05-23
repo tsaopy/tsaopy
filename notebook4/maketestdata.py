@@ -33,7 +33,7 @@ deriv = lambda X : np.array([  X[1],  np.sin(X[0])*(k*np.cos(X[0])-g)  ])
 
 X0 = np.array([1.0,0.5])
 
-result = solve_ivp(deriv,X0,(0,30),0.01)
+result = solve_ivp(deriv,X0,(0,60),0.01)
 
 t,x,v = result[:,0],result[:,1],result[:,2]
 
@@ -48,8 +48,8 @@ while len(t) > n_out:
 
 # add noise
 for i in range(n_out):
-    x[i] = x[i] + noise()*0.3
-    v[i] = v[i] + noise()*0.2
+    x[i] = x[i] + noise()*0.7
+    v[i] = v[i] + noise()*0.5
     
 # plot results
 plt.figure(figsize=(7, 5), dpi=150)
