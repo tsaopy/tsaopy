@@ -28,10 +28,10 @@ noise = lambda : np.random.uniform(-u_noise,u_noise) +\
     np.random.normal(0,n_noise)
 
 # simulation
-a1,b1 = 0.3,1.0
-deriv = lambda X : np.array([  X[1],  -a1*X[1]-b1*X[0]  ])
+k,g = 1.0,0.5
+deriv = lambda X : np.array([  X[1],  np.sin(X[0])*(k*np.cos(X[0])-g)  ])
 
-X0 = np.array([1.0,0.0])
+X0 = np.array([1.0,0.5])
 
 result = solve_ivp(deriv,X0,(0,30),0.01)
 
