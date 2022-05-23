@@ -235,7 +235,6 @@ class Model:
                     label='x measurements')
         plt.legend()
         plt.show()
-        pass
     
     def plot_simulation(self,coords,figsize=(7,5),dpi=150):
         plt.figure(figsize=figsize,dpi=dpi)
@@ -245,7 +244,6 @@ class Model:
                     label='x simulation')
         plt.legend()
         plt.show()
-        pass
    
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
@@ -319,7 +317,6 @@ class VelocityModel(Model):
                     label='v measurements')
         plt.legend()
         plt.show()
-        pass
     
     def plot_measurements_x(self,figsize=(7,5),dpi=150):
         plt.figure(figsize=figsize,dpi=dpi)
@@ -327,7 +324,6 @@ class VelocityModel(Model):
                     label='x measurements')
         plt.legend()
         plt.show()
-        pass
     
     def plot_measurements_v(self,figsize=(7,5),dpi=150):
         plt.figure(figsize=figsize,dpi=dpi)
@@ -335,7 +331,6 @@ class VelocityModel(Model):
                     label='v measurements')
         plt.legend()
         plt.show()
-        pass
     
     def plot_simulation(self,coords,figsize=(7,5),dpi=150):
         plt.figure(figsize=figsize,dpi=dpi)
@@ -349,7 +344,6 @@ class VelocityModel(Model):
                     label='v simulation')
         plt.legend()
         plt.show()
-        pass
     
     def plot_simulation_x(self,coords,figsize=(7,5),dpi=150):
         plt.figure(figsize=figsize,dpi=dpi)
@@ -359,7 +353,6 @@ class VelocityModel(Model):
                     label='x simulation')
         plt.legend()
         plt.show()
-        pass
 
     def plot_simulation_v(self,coords,figsize=(7,5),dpi=150):
         plt.figure(figsize=figsize,dpi=dpi)
@@ -369,7 +362,6 @@ class VelocityModel(Model):
                     label='v simulation')
         plt.legend()
         plt.show()
-        pass
     
 # extra
 
@@ -382,7 +374,6 @@ def cornerplots(flat_samples,labels_list):
                         title_fmt='.3g', truths=sample_truths,
                         truth_color='tab:red')
     plt.show()
-    pass
 
 def traceplots(samples,labels_list):
     dim = len(labels_list)
@@ -397,7 +388,6 @@ def traceplots(samples,labels_list):
     
     axes[-1].set_xlabel("step number");
     plt.show()
-    pass
 
 def autocplots(flat_samples,labels_list):
     dim,clen = len(labels_list),len(flat_samples)
@@ -416,7 +406,6 @@ def autocplots(flat_samples,labels_list):
     
     axes[-1].set_xlabel("sample number");
     plt.show()
-    pass
 
 class uniform_prior:
     def __init__(self, xmin, xmax):
