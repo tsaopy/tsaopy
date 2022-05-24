@@ -4,7 +4,7 @@ from multiprocessing import cpu_count, Pool
 from matplotlib import pyplot as plt
 import emcee
 import corner
-from oscadsf2py import simulation,simulationv
+from f2pyauxmod import simulation,simulationv
 from math import sqrt
 
 # parameter classes
