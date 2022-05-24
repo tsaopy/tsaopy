@@ -13,6 +13,6 @@ setup(
    install_requires=['numpy','math','sys','matplotlib','multiprocessing',
                      'emcee','corner'], 
    scripts=[
-           'tsaopy/f2pyauxmod'
+           'tsaopy/f2pyauxmod.'
            ]
 )
