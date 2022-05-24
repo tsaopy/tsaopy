@@ -113,9 +113,10 @@ class Model:
         self.x_data = x_data
         self.x_unc = x_unc
         
+        self.datalen = len(t_data)
         self.t0 = t_data[0]
         self.tsplit = 4
-        self.dt = (t_data[1] - self.t0)/4.0
+        self.dt = (t_data[-1] - self.t0)/(self.datalen-1)/self.tsplit
         
         self.params_to_fit = [_ for _ in parameters if not _.fixed]
         self.ndim = len(self.params_to_fit)
@@ -126,8 +127,7 @@ class Model:
         
         self.fixed_values = { param_names(elem) : elem.value for elem
                              in self.parameters if elem.fixed}
-        self.datalen = len(x_data)
-        
+  
         self.parray_shape = params_array_shape(self.parameters)
         self.alens = self.parray_shape[2][0], \
             self.parray_shape[3][0],self.parray_shape[4][0], \
@@ -233,7 +233,7 @@ class Model:
         
     def update_tsplit(self,newtsplit):
         self.tsplit = newtsplit
-        self.dt = (self.t_data[1] - self.t0)/newtsplit
+        self.dt = (t_data[-1] - self.t0)/(self.datalen-1)/self.tsplit
     
     def neg_ll(self,coords):
         return -self.log_probability(coords)
