@@ -132,6 +132,8 @@ class Model:
         self.alens = self.parray_shape[2][0], \
             self.parray_shape[3][0],self.parray_shape[4][0], \
             self.parray_shape[4][1]
+        
+        self.mcmc_moves = None
     
     # simulations
     
@@ -209,7 +211,7 @@ class Model:
         
         with Pool(processes=cores) as pool:
              sampler = emcee.EnsembleSampler(n_walkers, self.ndim,
-                                        self.log_probability, pool=pool)
+                     self.log_probability, moves = self.mcmc_moves, pool=pool)
 
              print("Running burn-in...")
              p0, _, _ = sampler.run_mcmc(p0, burn_iter, progress=True)
@@ -226,12 +228,17 @@ class Model:
     def update_initvals(self,newinivalues):
         self.ptf_ini_values = newinivalues
         
+    def set_mcmc_moves(self,moves):
+        self.mcmc_moves = moves
+        
     def update_tsplit(self,newtsplit):
         self.tsplit = newtsplit
         self.dt = (self.t_data[1] - self.t0)/newtsplit
     
     def neg_ll(self,coords):
         return -self.log_probability(coords)
+    
+    # plots
     
     def plot_measurements(self,figsize=(7,5),dpi=150):
         plt.figure(figsize=figsize,dpi=dpi)
@@ -292,7 +299,7 @@ class VelocityModel(Model):
         
         with Pool(processes=cores) as pool:
              sampler = emcee.EnsembleSampler(n_walkers, self.ndim,
-                                        self.log_probability, pool=pool)
+                     self.log_probability, moves = self.mcmc_moves, pool=pool)
 
              print("Running burn-in...")
              p0, _, _ = sampler.run_mcmc(p0, burn_iter, progress=True)
@@ -310,6 +317,8 @@ class VelocityModel(Model):
     
     def neg_ll(self,coords):
         return -self.log_probability(coords)
+    
+    # plots
     
     def plot_measurements(self,figsize=(7,5),dpi=150):
         plt.figure(figsize=figsize,dpi=dpi)
