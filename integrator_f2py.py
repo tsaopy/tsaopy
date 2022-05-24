@@ -163,5 +163,5 @@ end subroutine simulationv
 
 '''
 import numpy.f2py
-numpy.f2py.compile(fortran_text_source, modulename='oscadsf2py',
+numpy.f2py.compile(fortran_text_source, modulename='f2pyauxmod',
                    verbose=False, extension='.f90')
