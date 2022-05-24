@@ -107,15 +107,15 @@ def fitparams_coord_info(fparams):
 
 class Model:
     def __init__(self,parameters,t_data,x_data,
-                 x_unc,tsplit=4):
+                 x_unc):
         self.parameters = parameters
         self.t_data = t_data
         self.x_data = x_data
         self.x_unc = x_unc
         
         self.t0 = t_data[0]
-        self.tsplit = tsplit
-        self.dt = (t_data[1] - self.t0)/self.tsplit
+        self.tsplit = 4
+        self.dt = (t_data[1] - self.t0)/4.0
         
         self.params_to_fit = [_ for _ in parameters if not _.fixed]
         self.ndim = len(self.params_to_fit)
@@ -225,6 +225,10 @@ class Model:
          
     def update_initvals(self,newinivalues):
         self.ptf_ini_values = newinivalues
+        
+    def update_tsplit(self,newtsplit):
+        self.tsplit = newtsplit
+        self.dt = (self.t_data[1] - self.t0)/newtsplit
     
     def neg_ll(self,coords):
         return -self.log_probability(coords)
@@ -249,12 +253,10 @@ class Model:
 
 class VelocityModel(Model):
     def __init__(self,parameters,t_data,x_data,v_data,
-                 x_unc,v_unc,tsplit=4):
+                 x_unc,v_unc):
         super().__init__(parameters,t_data,x_data,x_unc)
-        self.tsplit = tsplit
         self.v_data = v_data
         self.v_unc = v_unc
-        self.dt = (t_data[1] - self.t0)/self.tsplit
             
     def predict(self,coords):
         
