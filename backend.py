@@ -233,7 +233,7 @@ class Model:
         
     def update_tsplit(self,newtsplit):
         self.tsplit = newtsplit
-        self.dt = (t_data[-1] - self.t0)/(self.datalen-1)/self.tsplit
+        self.dt = (self.t_data[-1] - self.t0)/(self.datalen-1)/self.tsplit
     
     def neg_ll(self,coords):
         return -self.log_probability(coords)
