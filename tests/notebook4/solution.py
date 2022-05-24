@@ -1,5 +1,7 @@
+import sys
+sys.path.append('../..')
 import numpy as np
-import backend as bend
+import tsaopy
 
 # load data
 data = np.loadtxt('experiment_data.txt')
@@ -8,23 +10,23 @@ data_x_sigma,data_v_sigma = 0.2,0.15
 
 # priors
 
-x0_prior = bend.uniform_prior(0.7,1.3)
-v0_prior = bend.uniform_prior(0.3,0.7)
-b1_prior = bend.normal_prior(0.0,10.0)
-b3_prior = bend.normal_prior(0.0,10.0)
+x0_prior = tsaopy.tools.uniform_prior(0.7,1.3)
+v0_prior = tsaopy.tools.uniform_prior(0.3,0.7)
+b1_prior = tsaopy.tools.normal_prior(0.0,10.0)
+b3_prior = tsaopy.tools.normal_prior(0.0,10.0)
     
 # parameters
 
-x0 = bend.FittingParameter(1.0,'x0',1,x0_prior)
-v0 = bend.FittingParameter(0.5,'v0',1,v0_prior)
-b1 = bend.FittingParameter(0.0,'b',1,b1_prior)
-b3 = bend.FittingParameter(0.0,'b',3,b3_prior)
+x0 = tsaopy.parameters.FittingParameter(1.0,'x0',1,x0_prior)
+v0 = tsaopy.parameters.FittingParameter(0.5,'v0',1,v0_prior)
+b1 = tsaopy.parameters.FittingParameter(0.0,'b',1,b1_prior)
+b3 = tsaopy.parameters.FittingParameter(0.0,'b',3,b3_prior)
 
 parameters = [x0,v0,b1,b3]
 
 # model 2
 
-model2 = bend.VelocityModel(parameters,data_t,data_x,data_v,
+model2 = tsaopy.models.VelocityModel(parameters,data_t,data_x,data_v,
                             data_x_sigma,data_v_sigma)
 neg_ll = model2.neg_ll
 
@@ -41,9 +43,9 @@ sampler,_,_,_ = model2.setup_sampler(300, 100, 500)
 samples, flat_samples = sampler.get_chain(), sampler.get_chain(flat=True)
 
 label_list = model2.params_labels
-bend.cornerplots(flat_samples,label_list)
-bend.traceplots(samples,label_list)
-bend.autocplots(flat_samples,label_list)
+tsaopy.tools.cornerplots(flat_samples,label_list)
+tsaopy.tools.traceplots(samples,label_list)
+tsaopy.tools.autocplots(flat_samples,label_list)
 
 solutions = [np.mean(flat_samples[:,_]) for _ in range(len(parameters))]
 model2.plot_simulation(solutions)
