@@ -34,7 +34,7 @@ deriv3 = lambda X : np.array([  X[1], -b1*X[0]-b3*X[0]**3-b5*X[0]**5] )
 deriv = [deriv1,deriv2,deriv3]
 
 init_conds = [[1.0,0.05],[1.0,0.1],[1.0,0.2],[1.0,0.3],
-              [1.0,0.5],[1.0,0.7],[1.0,0.8]]
+              [1.0,0.5],[1.0,0.6],[1.0,0.8]]
 colours = ['mediumslateblue','royalblue','tab:cyan','tab:green',
            'gold','tab:orange','tab:red']
 model_labels = ['original equation','3rd order tsaopy',
@@ -49,21 +49,24 @@ fig, axes = plt.subplots(3, figsize=(10, 18), dpi=100, sharex=True)
 plt.suptitle('phase portraits',size=24,x=0.3,y=0.92)
 for i in range(3):
         ax = axes[i]
-        ax.set_xlim(-2.1, 2.1)
-        ax.set_ylim(-1.0,1.0)
+        ax.set_xlim(-2.0, 2.0)
+        ax.set_ylim(-0.9,0.9)
         ax.set_ylabel(model_labels[i],size=20)
         ax.yaxis.set_label_coords(-0.07, 0.5)
         ax.set_xlabel(plot_labels[i],size=16)
         ax.xaxis.set_label_coords(0.5,bottom_labels_ycoord[i])
         
-        
-        ax.plot([-2.1,2.1],[0,0],color='gray',ls='--',lw=0.7)
+        ax.plot([-1.95,1.95],[0,0],color='gray',ls='--',lw=0.7)
         ax.plot([0,0],[-0.8,0.8],color='gray',ls='--',lw=0.7)
-        ax.plot([1.04,1.04],[-0.4,0.4],color='gray',ls='--',lw=0.7)
+        ax.plot([1.045,1.045],[-0.4,0.4],color='gray',ls='--',lw=0.7)
         
         for j in range(len(init_conds)):
             x0,color = init_conds[j],colours[j]
             result = solve_ivp(deriv[i],np.array(x0),(0,30),0.01)
             t,x,v = result[:,0],result[:,1],result[:,2]
             ax.plot(x, v, color = color)
+            result = solve_ivp(deriv[i],-np.array(x0),(0,30),0.01)
+            t,x,v = result[:,0],result[:,1],result[:,2]
+            ax.plot(x, v, color = color)
+
 plt.show()
