@@ -63,15 +63,14 @@ class normal_prior:
 
 def cornerplots(flat_samples, labels_list):
     """
-    This function makes cornerplots for a given sample and a list of labels for each parameter.
+    This function makes cornerplots given a sample and a list of labels for each parameter.
 
-    The middle red line on each PDF marks the mean which in general is NOT the same as the mode,
-    except on some particular PDFs such as the normal distribution.
-    The dashed grey lines mark the 16/84 and 84/16 quantiles which indicate the SD in a normal
-    distribution.
+    The middle red line on each PDF marks the median, which is also the central value reported
+    above the plot. The dashed grey lines mark the 16/84 and 84/16 quantiles, which indicate
+    the SD in a normal distribution.
     """
     dim = len(labels_list)
-    sample_truths = [np.mean(flat_samples[:, _]) for _ in range(dim)]
+    sample_medians = [np.median(flat_samples[:, _]) for _ in range(dim)]
 
     corner.corner(
         flat_samples,
@@ -79,7 +78,7 @@ def cornerplots(flat_samples, labels_list):
         quantiles=(0.16, 0.84),
         show_titles=True,
         title_fmt=".3g",
-        truths=sample_truths,
+        truths=sample_medians,
         truth_color="tab:red",
     )
     plt.show()
