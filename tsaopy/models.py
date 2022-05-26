@@ -11,6 +11,17 @@ from tsaopy.bendtools import fitparams_info, params_array_shape, test_params_are
 
 
 class PModel:
+    """
+    This class builds tsaopy model objects. This object condenses all necessary variables to set up
+    the ODE according to the parameters you provided plus the MCMC configuration to do the fitting.
+
+    It includes some QOL methods suchs as changing the initial values of the chain, the time step
+    for the simulations, the number of CPU cores used during simulations, and type of emcee moves
+    used in the MCMC chain. It also includes some plotting methods.
+
+    This model class only uses x(t) information for the fitting.
+    """
+
     def __init__(self, parameters, t_data, x_data, x_unc):
         test_params_are_ok(parameters)
 
@@ -169,6 +180,10 @@ class PModel:
 
 
 class PVModel(PModel):
+    """
+    Similar to the PModel, this model ajusts the parameters to both x(t) and v(t) data.
+    """
+
     def __init__(self, parameters, t_data, x_data, v_data, x_unc, v_unc):
         super().__init__(parameters, t_data, x_data, x_unc)
         self.v_data = v_data
