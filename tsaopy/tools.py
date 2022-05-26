@@ -1,8 +1,11 @@
+import sys
 import numpy as np
 from math import sqrt
 import matplotlib.pyplot as plt
 import corner
 from emcee.autocorr import function_1d
+
+from tsaopy.bendtools import test_var_is_number
 
 #                                   PRIOR CLASSES
 
@@ -20,6 +23,10 @@ class uniform_prior:
     """
 
     def __init__(self, xmin, xmax):
+        if not test_var_is_number(xmin) or not test_var_is_number(xmax):
+            sys.exit("tsaopy priors error: input parameters are not real numbers.")
+        if not xmax > xmin:
+            sys.exit("tsaopy priors error: upper bound is not greater than lower bound.")
         self.xmin = xmin
         self.xmax = xmax
 
@@ -41,15 +48,13 @@ class normal_prior:
     """
 
     def __init__(self, x0, sigma):
+        if not test_var_is_number(x0) or not test_var_is_number(sigma):
+            sys.exit("tsaopy priors error: input parameters are not real numbers.")
         self.x0 = x0
         self.sigma = sigma
 
     def __call__(self, x):
-        p = (
-            np.exp(-0.5 * ((x - self.x0) / self.sigma) ** 2)
-            / sqrt(2 * np.pi)
-            / self.sigma
-        )
+        p = (np.exp(-0.5 * ((x - self.x0) / self.sigma) ** 2) / sqrt(2 * np.pi) / self.sigma)
         return p
 
 
