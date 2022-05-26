@@ -1,3 +1,7 @@
+"""
+This is a legacy file and will be probably deleted in coming updates.
+"""
+
 fortran_text_source = '''
 
 !   commenting with ! works fine
