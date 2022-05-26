@@ -71,3 +71,14 @@ a1 = tsaopy.parameters.FittingParameter(0.0, 'a', 1, a1_prior)
 b1 = tsaopy.parameters.FittingParameter(0.5,'b',1,b1_prior)
 
 parameters = [x0,v0,a1,b1]
+
+# model 2 (velocity)
+
+model2 = tsaopy.models.VelocityModel(parameters,data_t,data_x,data_v,
+                            data_x_sigma,data_v_sigma)
+
+sampler,_,_,_ = model2.setup_sampler(200, 300, 300)
+samples, flat_samples = sampler.get_chain(), sampler.get_chain(flat=True)
+
+label_list = model2.params_labels
+tsaopy.tools.cornerplots(flat_samples,label_list)
