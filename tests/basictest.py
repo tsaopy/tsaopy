@@ -74,7 +74,7 @@ parameters = [x0,v0,a1,b1]
 
 # model 2 (velocity)
 
-model2 = tsaopy.models.VelocityModel(parameters,data_t,data_x,data_v,
+model2 = tsaopy.models.PVModel(parameters,data_t,data_x,data_v,
                             data_x_sigma,data_v_sigma)
 
 sampler,_,_,_ = model2.setup_sampler(200, 300, 300)
