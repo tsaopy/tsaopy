@@ -10,7 +10,7 @@ from tsaopy.bendtools import fitparams_info, params_array_shape, test_params_are
 # model classes
 
 
-class Model:
+class PModel:
     def __init__(self, parameters, t_data, x_data, x_unc):
         test_params_are_ok(parameters)
 
@@ -168,7 +168,7 @@ class Model:
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
 
-class VelocityModel(Model):
+class PVModel(PModel):
     def __init__(self, parameters, t_data, x_data, v_data, x_unc, v_unc):
         super().__init__(parameters, t_data, x_data, x_unc)
         self.v_data = v_data
