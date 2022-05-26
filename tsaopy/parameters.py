@@ -1,4 +1,7 @@
-# parameter classes
+import sys
+from tsaopy.bendtools import test_var_is_number
+
+#                               PARAMETER CLASSES
 
 
 class Fixed:
@@ -12,6 +15,8 @@ class Fixed:
     """
 
     def __init__(self, value, ptype, index):
+        if not test_var_is_number(value):
+            sys.exit("tsaopy params error: input value is not a number.")
         self.value = value
         self.ptype = ptype
         self.index = index
