@@ -9,10 +9,10 @@ def test_var_is_number(x):
     Test if variable represents a real number.
 
     Args:
-        x: variable to test.
+    x: variable to test.
 
     Returns:
-        True if x is of type int or float and False otherwise.
+    True if x is of type int or float and False otherwise.
     """
     if type(x) == int or type(x) == float:
         return True
@@ -25,13 +25,13 @@ def param_name(param):
     Build the label for a given tsaopy parameter instance.
 
     Args:
-        param: tsaopy parameter instance.
+    param: tsaopy parameter instance.
 
     Returns:
-        String with a name for the parameter.
+    String with a name for the parameter.
 
     Raises:
-        tsaopy backend error : Error naming parameters.
+    tsaopy backend error : Error naming parameters.
     """
     ptype, index = param.ptype, param.index
     if ptype == "c" and len(index) == 2:
@@ -52,14 +52,13 @@ def param_name(param):
 
 def param_cindex(param):
     """
-    Return an index that locates the individual parameter in the 
-    parameters array.
+    Return an index that locates the individual parameter in the parameters array.
 
     Args:
-        param: tsaopy parameter instance.
+    param: tsaopy parameter instance.
 
     Returns:
-        Index as int touples.
+    Index as int touples.
     """
     if param.ptype == "x0":
         return 0, 0
@@ -78,22 +77,19 @@ def param_cindex(param):
 
 def test_params_are_ok(params):
     """
-    Test if a list of tsaopy parameters meets minimum conditions to 
-    build a tsaopy model.
+    Test if a list of tsaopy parameters meets minimum conditions to build a tsaopy model.
 
     Args:
-        params: list of tsaopy parameter instances.
+    params: list of tsaopy parameter instances.
 
     Returns:
-        None
+    None
 
     Raises:
-        tsaopy model error: unvalid parameter ptype.
-        tsaopy model error: you have defined repeated parameters.
-        tsaopy model error: you haven't defined proper initial 
-        conditions in the parameters.
-        tsaopy model error: you haven't defined any ODE coefficients in 
-        the parameters.
+    tsaopy model error: unvalid parameter ptype.
+    tsaopy model error: you have defined repeated parameters.
+    tsaopy model error: you haven't defined proper initial conditions in the parameters.
+    tsaopy model error: you haven't defined any ODE coefficients in the parameters.
     """
     params_list = []
     for param in params:
@@ -118,15 +114,14 @@ def ptype_array_shape(params, n_ptype):
     Set the shape of the params array for the n ptype.
 
     Args:
-        params: list of tsaopy parameter instances.
-        n_ptype: str with with a tsaopy parameter ptype.
+    params: list of tsaopy parameter instances.
+    n_ptype: str with with a tsaopy parameter ptype.
 
     Returns:
-        Integer touple.
+    Integer touple.
 
     Raises:
-        tsaopy backend error: n ptype is not a, b, c, or f when building
-        the parameters array.
+    tsaopy backend error: n ptype is not a, b, c, or f when building the parameters array.
     """
     indexes = []
     for elem in params:
@@ -155,10 +150,10 @@ def params_array_shape(params):
     Build a list with the shapes of the params arrays for each ptype.
 
     Args:
-        params: list of tsaopy parameter instances.
+    params: list of tsaopy parameter instances.
 
     Returns:
-        List with shapes data.
+    List with shapes data.
     """
     all_params_array_shape = [(1,), (1,)]
 
@@ -174,15 +169,14 @@ def params_array_shape(params):
 
 def fitparams_info(fparams):
     """
-    Build a list with indexes for each individual parameter in the 
-    global parameters array, and a list with labels for those 
-    parameters.
+    Build a list with indexes for each individual parameter in the global parameters array, and a 
+    list with labels for those parameters.
 
     Args:
-        params: list of tsaopy parameter instances.
+    params: list of tsaopy parameter instances.
 
     Returns:
-        List with indexes, list with params labels.
+    List with indexes, list with params labels.
     """
     indexes, labels = [], []
     for fparam in fparams:
