@@ -3,10 +3,30 @@ import numpy as np
 
 # aux functions for the backend :9
 
+"""
+Function description.
+
+Args:
+    param1: This is the first param.
+    param2: This is a second param.
+
+Returns:
+    This is a description of what is returned.
+
+Raises:
+    KeyError: Raises an exception.
+"""
+
 
 def test_var_is_number(x):
     """
-    Test if variable represents a real number
+    Test if variable represents a real number.
+
+    Args:
+        x: variable to test.
+
+    Returns:
+        True if x is of type int or float and False otherwise.
     """
     if type(x) == int or type(x) == float:
         return True
@@ -16,7 +36,16 @@ def test_var_is_number(x):
 
 def param_name(param):
     """
-    This function builds the label for a given parameter.
+    Build the label for a given tsaopy parameter instance.
+
+    Args:
+        param: tsaopy parameter instance.
+
+    Returns:
+        String with a name for the parameter.
+
+    Raises:
+        tsaopy backend error : Error naming parameters.
     """
     ptype, index = param.ptype, param.index
     if ptype == "c" and len(index) == 2:
@@ -37,7 +66,14 @@ def param_name(param):
 
 def param_cindex(param):
     """
-    This function returns the location in the params array used by the backend for a given param.
+    Return an index that locates the individual parameter in the 
+    parameters array.
+
+    Args:
+        param: tsaopy parameter instance.
+
+    Returns:
+        Index as int touples.
     """
     if param.ptype == "x0":
         return 0, 0
@@ -56,18 +92,35 @@ def param_cindex(param):
 
 def test_params_are_ok(params):
     """
-    Test if a given list of tsaopy parameters meets the bare minimum to build a tsaopy model.
+    Test if a list of tsaopy parameters meets minimum conditions to 
+    build a tsaopy model.
+
+    Args:
+        params: list of tsaopy parameter instances.
+
+    Returns:
+        None
+
+    Raises:
+        tsaopy model error: unvalid parameter ptype.
+        tsaopy model error: you have defined repeated parameters.
+        tsaopy model error: you haven't defined proper initial 
+        conditions in the parameters.
+        tsaopy model error: you haven't defined any ODE coefficients in 
+        the parameters.
     """
     params_list = []
     for param in params:
         params_list.append(param_name(param))
+        if param.ptype not in ['x0', 'v0', 'a', 'b', 'c', 'f']:
+            sys.exit("tsaopy model error: unvalid parameter ptype.")
     params_set = set(params_list)
 
     if len(params_list) != len(params_set):
         sys.exit("tsaopy model error: you have defined repeated parameters.")
 
     if ("x0" not in params_set) or ("v0" not in params_set):
-        sys.exit("tsaopy model error: you haven't defined proper initial conditions in the"
+        sys.exit("tsaopy model error: you haven't defined proper initial conditions in the "
                  "parameters.")
 
     if len(params_set) < 3:
@@ -76,7 +129,18 @@ def test_params_are_ok(params):
 
 def ptype_array_shape(params, n_ptype):
     """
-    This function gets the shape of the params array for the n ptype.
+    Set the shape of the params array for the n ptype.
+
+    Args:
+        params: list of tsaopy parameter instances.
+        n_ptype: str with with a tsaopy parameter ptype.
+
+    Returns:
+        Integer touple.
+
+    Raises:
+        tsaopy backend error: n ptype is not a, b, c, or f when building
+        the parameters array.
     """
     indexes = []
     for elem in params:
@@ -102,7 +166,13 @@ def ptype_array_shape(params, n_ptype):
 
 def params_array_shape(params):
     """
-    This function builds an array that indicates the shape of all params arrays.
+    Build a list with the shapes of the params arrays for each ptype.
+
+    Args:
+        params: list of tsaopy parameter instances.
+
+    Returns:
+        List with shapes data.
     """
     all_params_array_shape = [(1,), (1,)]
 
@@ -118,8 +188,15 @@ def params_array_shape(params):
 
 def fitparams_info(fparams):
     """
-    This function builds the list of labels for all fitting parameters, and indicates each
-    parameter's position in the parameters array used in the simulations.
+    Build a list with indexes for each individual parameter in the 
+    global parameters array, and a list with labels for those 
+    parameters.
+
+    Args:
+        params: list of tsaopy parameter instances.
+
+    Returns:
+        List with indexes, list with params labels.
     """
     indexes, labels = [], []
     for fparam in fparams:
