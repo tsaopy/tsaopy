@@ -3,20 +3,6 @@ import numpy as np
 
 # aux functions for the backend :9
 
-"""
-Function description.
-
-Args:
-    param1: This is the first param.
-    param2: This is a second param.
-
-Returns:
-    This is a description of what is returned.
-
-Raises:
-    KeyError: Raises an exception.
-"""
-
 
 def test_var_is_number(x):
     """
