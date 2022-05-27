@@ -12,8 +12,8 @@ from tsaopy.bendtools import test_var_is_number
 
 class uniform_prior:
     """
-    This class defines a probability distribution object. An instance of this class can be called
-    to compute the probability density of a float, and it only takes the float as argument.
+    Defines a probability distribution object. An instance of this class can be called to compute
+    the probability density of a float, and it only takes the float as argument.
 
     The uniform prior distribution is defined as in the usual mathematical convention and is
     given normalized.
@@ -53,8 +53,8 @@ class uniform_prior:
 
 class normal_prior:
     """
-    This class defines a probability distribution object. An instance of this class can be called
-    to compute the probability density of a float, and it only takes the float as argument.
+    Define a probability distribution object. An instance of this class can be called to compute
+    the probability density of a float, and it only takes the float as argument.
 
     The normal (aka Gaussian) prior distribution is defined as in the usual mathematical convention
     and is given normalized.
@@ -95,7 +95,7 @@ class normal_prior:
 
 def cornerplots(flat_samples, labels_list):
     """
-    This function makes cornerplots given a sample and a list of labels for each parameter.
+    Make cornerplots given a sample and a list of labels for each parameter.
 
     The middle red line on each PDF marks the median, which is also the central value reported
     above the plot. The dashed grey lines mark the 16/84 and 84/16 quantiles, which indicate
@@ -125,8 +125,8 @@ def cornerplots(flat_samples, labels_list):
 
 def traceplots(samples, labels_list):
     """
-    This function makes traceplots for each parameter of a given sample. Notice that in this
-    case the samples object is not given flattened.
+    Make traceplots for each parameter of a given sample. Notice that in this case the samples
+    object is not given flattened.
 
     A trace plot shows the evolution of each walker for a parameter during an MCMC run. This is
     used for analyzing the convergence of an MCMC chain, or to diagnose problems in a not
@@ -155,8 +155,8 @@ def traceplots(samples, labels_list):
 
 def autocplots(flat_samples, labels_list):
     """
-    This function plots the autocorrelation function for each parameter of a given sample using the
-    function_1d method in emcee.autocorr. It is used to asses the convergence of an MCMC chain.
+    Plot the autocorrelation function for each parameter of a given sample using the function_1d
+    callable provided in emcee.autocorr. It is used to asses the convergence of an MCMC chain.
 
     An autocorrelation function that quickly drops from 1 to 0, and keeps oscillating around 0
     afterwards suggests that the samples might come from a converged chain. It is not a final
