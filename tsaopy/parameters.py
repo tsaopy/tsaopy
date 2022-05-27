@@ -21,10 +21,10 @@ class Fixed:
     f. Used to identify if the parameter is an initial condition, or an ODE coefficient.
     index(int or int touple):
         - takes value 1 for x0 and v0 parameters
-        - for a and b parameters its the order of the term, eg: $b_2*x^2$ => index = 2
+        - for a and b parameters its the order of the term, eg: b_2*x^2 => index = 2
         - for c parameters it is a touple with the order of x as first element and the order of
-        $\dot{x}$ as second element, eg: $c_{21}x^2\dot{x}$ => index = (2, 1)
-        - for f parameters it is 1 for $F_0$, 2 for $\omega$, and 3 for $\phi$.
+        x'=v as second element, eg: c_21*x^2*x' => index = (2, 1)
+        - for f parameters it is 1 for F_0, 2 for omega, and 3 for phi.
     fixed(boolean): True if it is a Fixed parameter and False if it is a Fitting parameter.
     """
 
