@@ -234,8 +234,6 @@ class PVModel(PModel):
 
             return sampler, pos, prob, state
 
-    ###################################################################
-
     # tools
 
     def neg_ll(self, coords):
