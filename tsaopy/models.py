@@ -4,9 +4,9 @@ from multiprocessing import cpu_count, Pool
 from matplotlib import pyplot as plt
 import emcee
 
-from tsaopy.f2pyauxmod import simulation, simulationv
-from tsaopy.bendtools import (fitparams_info, params_array_shape,
-                              test_params_are_ok)
+from tsaopyv2.f2pyauxmod import simulation, simulationv
+from tsaopyv2.bendtools import (fitparams_info, params_array_shape,
+                                test_params_are_ok)
 
 # model classes
 
@@ -68,10 +68,10 @@ class PModel:
         self.priors_array = [p.prior for p in self.params_to_fit]
 
         self.parray_shape = params_array_shape(self.parameters)
-        self.alens = (self.parray_shape[2][0],
-                      self.parray_shape[3][0],
-                      self.parray_shape[4][0],
-                      self.parray_shape[4][1])
+        self.alens = (self.parray_shape[0][0],
+                      self.parray_shape[1][0],
+                      self.parray_shape[2][0],
+                      self.parray_shape[2][1])
 
         self.mcmc_moves = None
         self.cpu_cores = cpu_count() - 2
@@ -81,25 +81,27 @@ class PModel:
     def setup_simulation_arrays(self, coords):
 
         na, nb, cn, cm, = self.alens
-        x0v0, A, B, C, F = (np.zeros(2), np.zeros(na), np.zeros(nb),
-                            np.zeros((cn, cm)), np.zeros(3))
+        epx0v0, A, B, C, F = (np.zeros(3), np.zeros(na), np.zeros(nb),
+                              np.zeros((cn, cm)), np.zeros(3))
 
-        for _ in self.parameters:
-            if _.ptype == "x0":
-                x0v0[0] = _.value
-            elif _.ptype == "v0":
-                x0v0[1] = _.value
-            elif _.ptype == "a":
-                A[_.index - 1] = _.value
-            elif _.ptype == "b":
-                B[_.index - 1] = _.value
-            elif _.ptype == "c":
-                q = _.index
-                C[(q[0] - 1, q[1] - 1)] = _.value
-            elif _.ptype == "f":
-                F[_.index - 1] = _.value
+        for p in self.parameters:
+            if p.ptype == "ep":
+                epx0v0[0] = p.value
+            if p.ptype == "x0":
+                epx0v0[1] = p.value
+            elif p.ptype == "v0":
+                epx0v0[2] = p.value
+            elif p.ptype == "a":
+                A[p.index - 1] = p.value
+            elif p.ptype == "b":
+                B[p.index - 1] = p.value
+            elif p.ptype == "c":
+                q = p.index
+                C[(q[0] - 1, q[1] - 1)] = p.value
+            elif p.ptype == "f":
+                F[p.index - 1] = p.value
 
-        results = [x0v0, A, B, C, F]
+        results = [epx0v0, A, B, C, F]
         ptf_index_info = self.ptf_info
 
         for q in ptf_index_info:
@@ -113,11 +115,14 @@ class PModel:
         dt, tsplit, datalen = self.dt, self.tsplit, self.datalen
         na, nb, cn, cm, = self.alens
 
-        x0v0_simu, A_simu, B_simu, C_simu, F_simu = (
+        epx0v0_simu, A_simu, B_simu, C_simu, F_simu = (
                                         self.setup_simulation_arrays(coords))
 
+        ep_simu, x0v0_simu = epx0v0_simu[0], epx0v0_simu[1:]
+
         return simulation(x0v0_simu, A_simu, B_simu, C_simu, F_simu,
-                          dt, tsplit * datalen, na, nb, cn, cm)[::tsplit]
+                          dt, tsplit * datalen, na, nb, cn, cm
+                          )[::tsplit] + ep_simu
 
     # mcmc stuff
 
@@ -163,7 +168,6 @@ class PModel:
         emcee Sampler object instance.
 
         """
-
         p0 = [self.mcmc_initvals + 1e-7 * np.random.randn(self.ndim)
               for i in range(n_walkers)]
 
@@ -212,7 +216,7 @@ class PModel:
     def set_mcmc_moves(self, moves):
         """
 
-        Sets the mcmc_moves attribute in the tsaopy model instance. Default is
+        Set the mcmc_moves attribute in the tsaopy model instance. Default is
         None.
 
         This attribute is supplied to the emcee Sampler object when you call
@@ -233,7 +237,7 @@ class PModel:
     def set_cpu_cores(self, cores):
         """
 
-        Sets the cpu_cores attribute in the tsaopy model instance. Default is
+        Set the cpu_cores attribute in the tsaopy model instance. Default is
         the total number of cores in the system, obtained with
         multiprocessing.cpu_count, minus two.
 
@@ -360,7 +364,6 @@ class PModel:
 
 
 class PVModel(PModel):
-
     """
 
     Similar to the PModel, this model ajusts the parameters to both x(t) and
@@ -396,284 +399,17 @@ class PVModel(PModel):
         dt, tsplit, datalen = self.dt, self.tsplit, self.datalen
         na, nb, cn, cm, = self.alens
 
-        x0v0_simu, A_simu, B_simu, C_simu, F_simu = (
+        epx0v0_simu, A_simu, B_simu, C_simu, F_simu = (
                                         self.setup_simulation_arrays(coords))
 
-        return simulationv(x0v0_simu, A_simu, B_simu, C_simu, F_simu,
-                           dt, tsplit * datalen, na, nb, cn, cm)[::tsplit]
+        ep_simu, x0v0_simu = epx0v0_simu[0], epx0v0_simu[1:]
 
-    def log_likelihood(self, coefs):
-        prediction = self.predict(coefs)
-        predx, predv = prediction[:, 0], prediction[:, 1]
-        if not np.isfinite(predv[-1]):
-            return -np.inf
-        ll = - 0.5 * np.sum(((predx - self.x_data) / self.x_unc) ** 2) \
-             - 0.5 * np.sum(((predv - self.v_data) / self.v_unc) ** 2)
-        return ll
+        simu_result = simulationv(x0v0_simu, A_simu, B_simu, C_simu, F_simu,
+                                  dt, tsplit * datalen, na, nb, cn,
+                                  cm)[::tsplit]
 
-    def log_probability(self, coefs):
-        lp = self.log_prior(coefs)
-        if not np.isfinite(lp):
-            return -np.inf
-        return lp + self.log_likelihood(coefs)
-
-    def setup_sampler(self, n_walkers, burn_iter, main_iter):
-        """
-
-        See docs for PModel.
-
-        """
-        p0 = [self.mcmc_initvals + 1e-7 * np.random.randn(self.ndim)
-              for i in range(n_walkers)]
-
-        with Pool(processes=self.cpu_cores) as pool:
-            sampler = emcee.EnsembleSampler(n_walkers, self.ndim,
-                                            self.log_probability,
-                                            moves=self.mcmc_moves, pool=pool)
-
-            print("")
-            print("Running burn-in...")
-            p0, _, _ = sampler.run_mcmc(p0, burn_iter, progress=True)
-            sampler.reset()
-
-            print("")
-            print("Running production...")
-            pos, prob, state = sampler.run_mcmc(p0, main_iter, progress=True)
-
-            return sampler, pos, prob, state
-
-    # tools
-
-    def neg_ll(self, coords):
-        """
-
-        See docs for PModel.
-
-        """
-        return -self.log_probability(coords)
-
-    # plots
-
-    def plot_measurements(self, figsize=(7, 5), dpi=150):
-        """
-
-        Make a scatterplot showing both the (t,x(t)) and (t,v(t)) series
-        provided to the model.
-
-        Args:
-        figsize(optional)(shape touple): proportions of the image in the same
-        format as pyplot. Default is (7, 5).
-        dpi(optional)(dpi): dots per inch as used in pyplot. Default is 150.
-
-        Returns:
-        Displays created figures.
-
-        """
-        plt.figure(figsize=figsize, dpi=dpi)
-        plt.scatter(
-            self.t_data, self.x_data,
-            color="black", s=1.0, label="x measurements"
-        )
-        plt.scatter(
-            self.t_data, self.v_data,
-            color="tab:blue", s=1.0, label="v measurements"
-        )
-        plt.legend()
-        plt.show()
-
-    def plot_measurements_x(self, figsize=(7, 5), dpi=150):
-        """
-
-        Make a scatterplot showing the (t,x(t)) series provided to the model.
-
-        Args:
-        figsize(optional)(shape touple): proportions of the image in the same
-        format as pyplot. Default is (7, 5).
-        dpi(optional)(dpi): dots per inch as used in pyplot. Default is 150.
-
-        Returns:
-        Displays created figures.
-
-        """
-        plt.figure(figsize=figsize, dpi=dpi)
-        plt.scatter(
-            self.t_data, self.x_data,
-            color="black", s=1.0, label="x measurements"
-        )
-        plt.legend()
-        plt.show()
-
-    def plot_measurements_v(self, figsize=(7, 5), dpi=150):
-        """
-
-        Make a scatterplot showing the (t,v(t)) series provided to the model.
-
-        Args:
-        figsize(optional)(shape touple): proportions of the image in the same
-        format as pyplot. Default is (7, 5).
-        dpi(optional)(dpi): dots per inch as used in pyplot. Default is 150.
-
-        Returns:
-        Displays created figures.
-
-        """
-        plt.figure(figsize=figsize, dpi=dpi)
-        plt.scatter(
-            self.t_data, self.v_data,
-            color="tab:blue", s=1.0, label="v measurements"
-        )
-        plt.legend()
-        plt.show()
-
-    def plot_simulation(self, coords, figsize=(7, 5), dpi=150):
-        """
-
-        Make a scatterplot showing both the (t,x(t)) and (t,v(t)) series
-        provided to the model, and lineplots of a simulation using values
-        provided in the coords arg.
-
-        Args:
-        coords(list of numbers): list of values for your model parameters to be
-        used in the simulation.
-        figsize(optional)(shape touple): proportions of the image in the same
-        format as pyplot. Default is (7, 5).
-        dpi(optional)(dpi): dots per inch as used in pyplot. Default is 150.
-
-        Returns:
-        Displays created figures.
-
-        """
-        plt.figure(figsize=figsize, dpi=dpi)
-        plt.scatter(
-            self.t_data, self.x_data,
-            color="black", s=1.0, label="x measurements"
-        )
-        plt.scatter(
-            self.t_data, self.v_data,
-            color="tab:blue", s=1.0, label="v measurements"
-        )
-        plt.plot(
-            self.t_data,
-            self.predict(coords)[:, 0],
-            color="tab:red",
-            label="x simulation",
-        )
-        plt.plot(
-            self.t_data,
-            self.predict(coords)[:, 1],
-            color="tab:purple",
-            label="v simulation",
-        )
-        plt.legend()
-        plt.show()
-
-    def plot_simulation_x(self, coords, figsize=(7, 5), dpi=150):
-        """
-
-        Make a scatterplot showing the (t,x(t)) series provided to the model,
-        and a lineplot of a simulation using values provided in the coords arg.
-
-        Args:
-        coords(list of numbers): list of values for your model parameters to be
-        used in the simulation.
-        figsize(optional)(shape touple): proportions of the image in the same
-        format as pyplot. Default is (7, 5).
-        dpi(optional)(dpi): dots per inch as used in pyplot. Default is 150.
-
-        Returns:
-        Displays created figures.
-
-        """
-        plt.figure(figsize=figsize, dpi=dpi)
-        plt.scatter(
-            self.t_data, self.x_data,
-            color="black", s=1.0, label="x measurements"
-        )
-        plt.plot(
-            self.t_data,
-            self.predict(coords)[:, 0],
-            color="tab:red",
-            label="x simulation",
-        )
-        plt.legend()
-        plt.show()
-
-    def plot_simulation_v(self, coords, figsize=(7, 5), dpi=150):
-        """
-
-        Make a scatterplot showing the (t,v(t)) series provided to the model,
-        and a lineplot of a simulation using values provided in the coords arg.
-
-        Args:
-        coords(list of numbers): list of values for your model parameters to be
-        used in the simulation.
-        figsize(optional)(shape touple): proportions of the image in the same
-        format as pyplot. Default is (7, 5).
-        dpi(optional)(dpi): dots per inch as used in pyplot. Default is 150.
-
-        Returns:
-        Displays created figures.
-
-        """
-        plt.figure(figsize=figsize, dpi=dpi)
-        plt.scatter(
-            self.t_data, self.v_data,
-            color="tab:blue", s=1.0, label="v measurements"
-        )
-        plt.plot(
-            self.t_data,
-            self.predict(coords)[:, 1],
-            color="tab:purple",
-            label="v simulation",
-        )
-        plt.legend()
-        plt.show()
-
-    # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-
-
-class PVModel(PModel):
-
-    """
-
-    Similar to the PModel, this model ajusts the parameters to both x(t) and
-    v(t) data. See the PModel docs for more info.
-
-    """
-
-    def __init__(self, parameters, t_data, x_data, v_data, x_unc, v_unc):
-        """
-
-        Initialice the instance.
-
-        Args:
-        parameters(list of tsaopy parameter instancs): see docs for PModel.
-        t_data(array): array with the time axis of your measurements.
-        x_data(array): array with your x(t) measurements.
-        v_data(array): array with your v(t) measurements. Note that there can't
-        be a scale factor between x(t) and v(t), v(t) must be exactly equal to
-        the time derivative of x(t).
-        x_unc(array or number): see docs for PModel.
-        v_unc(array or number): same as x_unc but for v(t) measurements.
-
-        Returns:
-        tsaopy model object instance.
-
-        """
-        super().__init__(parameters, t_data, x_data, x_unc)
-        self.v_data = v_data
-        self.v_unc = v_unc
-
-    def predict(self, coords):
-
-        dt, tsplit, datalen = self.dt, self.tsplit, self.datalen
-        na, nb, cn, cm, = self.alens
-
-        x0v0_simu, A_simu, B_simu, C_simu, F_simu = (
-                                        self.setup_simulation_arrays(coords))
-
-        return simulationv(x0v0_simu, A_simu, B_simu, C_simu, F_simu,
-                           dt, tsplit * datalen, na, nb, cn, cm)[::tsplit]
+        simu_result[:, 0] = simu_result[:, 0] + ep_simu
+        return simu_result
 
     def log_likelihood(self, coefs):
         prediction = self.predict(coefs)
