@@ -18,7 +18,7 @@ class Fixed:
 
     """
 
-    def __init__(self, value, ptype, index):
+    def __init__(self, value, ptype, index=None):
         """
 
         Initialice the instance.
@@ -26,11 +26,12 @@ class Fixed:
         Args:
         value(int or float):  numerical value associated with the parameter.
         If parameter is Fixed it's the value assigned.
-        ptype(str): string with the values x0, v0, a, b, c, or f. Used to
+        ptype(str): string with the values ep, x0, v0, a, b, c, or f. Used to
         identify if the parameter is an initial condition, or an ODE
         coefficient.
-        index(int of int touple):
-            - takes value 1 for x0 and v0 parameters
+        index(int of int touple): optional for ep, x0, and v0 ptypes (does
+        nothing). It is necessary for a, b, c, and f ptypes. If not set for
+        those ptypes it will cause errors when building tsaopy models.
             - for a and b parameters its the order of the term,
                 eg: b_2*x^2 => index = 2
             - for c parameters it is a touple with the order of x as first
@@ -73,8 +74,9 @@ class Fitting(Fixed):
         ptype(str): string with the values x0, v0, a, b, c, or f. Used to
         identify if the parameter is an initial condition, or an ODE
         coefficient.
-        index(int of int touple):
-            - takes value 1 for x0 and v0 parameters
+        index(int of int touple): optional for ep, x0, and v0 ptypes (does
+        nothing). It is necessary for a, b, c, and f ptypes. If not set for
+        those ptypes it will cause errors when building tsaopy models.
             - for a and b parameters its the order of the term,
                 eg: b_2*x^2 => index = 2
             - for c parameters it is a touple with the order of x as first

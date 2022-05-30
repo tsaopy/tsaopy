@@ -4,9 +4,9 @@ from multiprocessing import cpu_count, Pool
 from matplotlib import pyplot as plt
 import emcee
 
-from tsaopy.f2pyauxmod import simulation, simulationv
-from tsaopy.bendtools import (fitparams_info, params_array_shape,
-                              test_params_are_ok)
+from tsaopyv2.f2pyauxmod import simulation, simulationv
+from tsaopyv2.bendtools import (fitparams_info, params_array_shape,
+                                test_params_are_ok)
 
 # model classes
 
@@ -68,10 +68,10 @@ class PModel:
         self.priors_array = [p.prior for p in self.params_to_fit]
 
         self.parray_shape = params_array_shape(self.parameters)
-        self.alens = (self.parray_shape[2][0],
-                      self.parray_shape[3][0],
-                      self.parray_shape[4][0],
-                      self.parray_shape[4][1])
+        self.alens = (self.parray_shape[0][0],
+                      self.parray_shape[1][0],
+                      self.parray_shape[2][0],
+                      self.parray_shape[2][1])
 
         self.mcmc_moves = None
         self.cpu_cores = cpu_count() - 2
@@ -81,25 +81,27 @@ class PModel:
     def setup_simulation_arrays(self, coords):
 
         na, nb, cn, cm, = self.alens
-        x0v0, A, B, C, F = (np.zeros(2), np.zeros(na), np.zeros(nb),
-                            np.zeros((cn, cm)), np.zeros(3))
+        epx0v0, A, B, C, F = (np.zeros(3), np.zeros(na), np.zeros(nb),
+                              np.zeros((cn, cm)), np.zeros(3))
 
-        for _ in self.parameters:
-            if _.ptype == "x0":
-                x0v0[0] = _.value
-            elif _.ptype == "v0":
-                x0v0[1] = _.value
-            elif _.ptype == "a":
-                A[_.index - 1] = _.value
-            elif _.ptype == "b":
-                B[_.index - 1] = _.value
-            elif _.ptype == "c":
-                q = _.index
-                C[(q[0] - 1, q[1] - 1)] = _.value
-            elif _.ptype == "f":
-                F[_.index - 1] = _.value
+        for p in self.parameters:
+            if p.ptype == "ep":
+                epx0v0[0] = p.value
+            if p.ptype == "x0":
+                epx0v0[1] = p.value
+            elif p.ptype == "v0":
+                epx0v0[2] = p.value
+            elif p.ptype == "a":
+                A[p.index - 1] = p.value
+            elif p.ptype == "b":
+                B[p.index - 1] = p.value
+            elif p.ptype == "c":
+                q = p.index
+                C[(q[0] - 1, q[1] - 1)] = p.value
+            elif p.ptype == "f":
+                F[p.index - 1] = p.value
 
-        results = [x0v0, A, B, C, F]
+        results = [epx0v0, A, B, C, F]
         ptf_index_info = self.ptf_info
 
         for q in ptf_index_info:
@@ -113,11 +115,14 @@ class PModel:
         dt, tsplit, datalen = self.dt, self.tsplit, self.datalen
         na, nb, cn, cm, = self.alens
 
-        x0v0_simu, A_simu, B_simu, C_simu, F_simu = (
+        epx0v0_simu, A_simu, B_simu, C_simu, F_simu = (
                                         self.setup_simulation_arrays(coords))
 
+        ep_simu, x0v0_simu = epx0v0_simu[0], epx0v0_simu[1:]
+
         return simulation(x0v0_simu, A_simu, B_simu, C_simu, F_simu,
-                          dt, tsplit * datalen, na, nb, cn, cm)[::tsplit]
+                          dt, tsplit * datalen, na, nb, cn, cm
+                          )[::tsplit] + ep_simu
 
     # mcmc stuff
 
@@ -163,7 +168,6 @@ class PModel:
         emcee Sampler object instance.
 
         """
-
         p0 = [self.mcmc_initvals + 1e-7 * np.random.randn(self.ndim)
               for i in range(n_walkers)]
 
@@ -212,7 +216,7 @@ class PModel:
     def set_mcmc_moves(self, moves):
         """
 
-        Sets the mcmc_moves attribute in the tsaopy model instance. Default is
+        Set the mcmc_moves attribute in the tsaopy model instance. Default is
         None.
 
         This attribute is supplied to the emcee Sampler object when you call
@@ -233,7 +237,7 @@ class PModel:
     def set_cpu_cores(self, cores):
         """
 
-        Sets the cpu_cores attribute in the tsaopy model instance. Default is
+        Set the cpu_cores attribute in the tsaopy model instance. Default is
         the total number of cores in the system, obtained with
         multiprocessing.cpu_count, minus two.
 
@@ -360,7 +364,6 @@ class PModel:
 
 
 class PVModel(PModel):
-
     """
 
     Similar to the PModel, this model ajusts the parameters to both x(t) and
@@ -396,11 +399,17 @@ class PVModel(PModel):
         dt, tsplit, datalen = self.dt, self.tsplit, self.datalen
         na, nb, cn, cm, = self.alens
 
-        x0v0_simu, A_simu, B_simu, C_simu, F_simu = (
+        epx0v0_simu, A_simu, B_simu, C_simu, F_simu = (
                                         self.setup_simulation_arrays(coords))
 
-        return simulationv(x0v0_simu, A_simu, B_simu, C_simu, F_simu,
-                           dt, tsplit * datalen, na, nb, cn, cm)[::tsplit]
+        ep_simu, x0v0_simu = epx0v0_simu[0], epx0v0_simu[1:]
+
+        simu_result = simulationv(x0v0_simu, A_simu, B_simu, C_simu, F_simu,
+                                  dt, tsplit * datalen, na, nb, cn,
+                                  cm)[::tsplit]
+
+        simu_result[:, 0] = simu_result[:, 0] + ep_simu
+        return simu_result
 
     def log_likelihood(self, coefs):
         prediction = self.predict(coefs)

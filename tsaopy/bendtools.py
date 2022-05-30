@@ -48,7 +48,7 @@ def param_name(param):
         return "w"
     elif ptype == "f" and index == 3:
         return "p"
-    elif ptype == "x0" or ptype == "v0":
+    elif ptype == "x0" or ptype == "v0" or ptype == "ep":
         return ptype
     else:
         sys.exit("tsaopy backend error : Error naming parameters.")
@@ -67,10 +67,12 @@ def param_cindex(param):
     Index as int touples.
 
     """
-    if param.ptype == "x0":
+    if param.ptype == "ep":
         return 0, 0
-    elif param.ptype == "v0":
+    elif param.ptype == "x0":
         return 0, 1
+    elif param.ptype == "v0":
+        return 0, 2
     elif param.ptype == "a":
         return 1, param.index - 1
     elif param.ptype == "b":
@@ -106,7 +108,7 @@ def test_params_are_ok(params):
     params_list = []
     for param in params:
         params_list.append(param_name(param))
-        if param.ptype not in ['x0', 'v0', 'a', 'b', 'c', 'f']:
+        if param.ptype not in ['ep', 'x0', 'v0', 'a', 'b', 'c', 'f']:
             sys.exit("tsaopy model error: unvalid parameter ptype.")
     params_set = set(params_list)
 
@@ -173,7 +175,7 @@ def params_array_shape(params):
     List with shapes data.
 
     """
-    all_params_array_shape = [(1,), (1,)]
+    all_params_array_shape = []
 
     for _ in ["a", "b", "c"]:
         all_params_array_shape.append(ptype_array_shape(params, _))
