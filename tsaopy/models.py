@@ -628,3 +628,276 @@ class PVModel(PModel):
         )
         plt.legend()
         plt.show()
+
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+
+class PVModel(PModel):
+
+    """
+
+    Similar to the PModel, this model ajusts the parameters to both x(t) and
+    v(t) data. See the PModel docs for more info.
+
+    """
+
+    def __init__(self, parameters, t_data, x_data, v_data, x_unc, v_unc):
+        """
+
+        Initialice the instance.
+
+        Args:
+        parameters(list of tsaopy parameter instancs): see docs for PModel.
+        t_data(array): array with the time axis of your measurements.
+        x_data(array): array with your x(t) measurements.
+        v_data(array): array with your v(t) measurements. Note that there can't
+        be a scale factor between x(t) and v(t), v(t) must be exactly equal to
+        the time derivative of x(t).
+        x_unc(array or number): see docs for PModel.
+        v_unc(array or number): same as x_unc but for v(t) measurements.
+
+        Returns:
+        tsaopy model object instance.
+
+        """
+        super().__init__(parameters, t_data, x_data, x_unc)
+        self.v_data = v_data
+        self.v_unc = v_unc
+
+    def predict(self, coords):
+
+        dt, tsplit, datalen = self.dt, self.tsplit, self.datalen
+        na, nb, cn, cm, = self.alens
+
+        x0v0_simu, A_simu, B_simu, C_simu, F_simu = (
+                                        self.setup_simulation_arrays(coords))
+
+        return simulationv(x0v0_simu, A_simu, B_simu, C_simu, F_simu,
+                           dt, tsplit * datalen, na, nb, cn, cm)[::tsplit]
+
+    def log_likelihood(self, coefs):
+        prediction = self.predict(coefs)
+        predx, predv = prediction[:, 0], prediction[:, 1]
+        if not np.isfinite(predv[-1]):
+            return -np.inf
+        ll = - 0.5 * np.sum(((predx - self.x_data) / self.x_unc) ** 2) \
+             - 0.5 * np.sum(((predv - self.v_data) / self.v_unc) ** 2)
+        return ll
+
+    def log_probability(self, coefs):
+        lp = self.log_prior(coefs)
+        if not np.isfinite(lp):
+            return -np.inf
+        return lp + self.log_likelihood(coefs)
+
+    def setup_sampler(self, n_walkers, burn_iter, main_iter):
+        """
+
+        See docs for PModel.
+
+        """
+        p0 = [self.mcmc_initvals + 1e-7 * np.random.randn(self.ndim)
+              for i in range(n_walkers)]
+
+        with Pool(processes=self.cpu_cores) as pool:
+            sampler = emcee.EnsembleSampler(n_walkers, self.ndim,
+                                            self.log_probability,
+                                            moves=self.mcmc_moves, pool=pool)
+
+            print("")
+            print("Running burn-in...")
+            p0, _, _ = sampler.run_mcmc(p0, burn_iter, progress=True)
+            sampler.reset()
+
+            print("")
+            print("Running production...")
+            pos, prob, state = sampler.run_mcmc(p0, main_iter, progress=True)
+
+            return sampler, pos, prob, state
+
+    # tools
+
+    def neg_ll(self, coords):
+        """
+
+        See docs for PModel.
+
+        """
+        return -self.log_probability(coords)
+
+    # plots
+
+    def plot_measurements(self, figsize=(7, 5), dpi=150):
+        """
+
+        Make a scatterplot showing both the (t,x(t)) and (t,v(t)) series
+        provided to the model.
+
+        Args:
+        figsize(optional)(shape touple): proportions of the image in the same
+        format as pyplot. Default is (7, 5).
+        dpi(optional)(dpi): dots per inch as used in pyplot. Default is 150.
+
+        Returns:
+        Displays created figures.
+
+        """
+        plt.figure(figsize=figsize, dpi=dpi)
+        plt.scatter(
+            self.t_data, self.x_data,
+            color="black", s=1.0, label="x measurements"
+        )
+        plt.scatter(
+            self.t_data, self.v_data,
+            color="tab:blue", s=1.0, label="v measurements"
+        )
+        plt.legend()
+        plt.show()
+
+    def plot_measurements_x(self, figsize=(7, 5), dpi=150):
+        """
+
+        Make a scatterplot showing the (t,x(t)) series provided to the model.
+
+        Args:
+        figsize(optional)(shape touple): proportions of the image in the same
+        format as pyplot. Default is (7, 5).
+        dpi(optional)(dpi): dots per inch as used in pyplot. Default is 150.
+
+        Returns:
+        Displays created figures.
+
+        """
+        plt.figure(figsize=figsize, dpi=dpi)
+        plt.scatter(
+            self.t_data, self.x_data,
+            color="black", s=1.0, label="x measurements"
+        )
+        plt.legend()
+        plt.show()
+
+    def plot_measurements_v(self, figsize=(7, 5), dpi=150):
+        """
+
+        Make a scatterplot showing the (t,v(t)) series provided to the model.
+
+        Args:
+        figsize(optional)(shape touple): proportions of the image in the same
+        format as pyplot. Default is (7, 5).
+        dpi(optional)(dpi): dots per inch as used in pyplot. Default is 150.
+
+        Returns:
+        Displays created figures.
+
+        """
+        plt.figure(figsize=figsize, dpi=dpi)
+        plt.scatter(
+            self.t_data, self.v_data,
+            color="tab:blue", s=1.0, label="v measurements"
+        )
+        plt.legend()
+        plt.show()
+
+    def plot_simulation(self, coords, figsize=(7, 5), dpi=150):
+        """
+
+        Make a scatterplot showing both the (t,x(t)) and (t,v(t)) series
+        provided to the model, and lineplots of a simulation using values
+        provided in the coords arg.
+
+        Args:
+        coords(list of numbers): list of values for your model parameters to be
+        used in the simulation.
+        figsize(optional)(shape touple): proportions of the image in the same
+        format as pyplot. Default is (7, 5).
+        dpi(optional)(dpi): dots per inch as used in pyplot. Default is 150.
+
+        Returns:
+        Displays created figures.
+
+        """
+        plt.figure(figsize=figsize, dpi=dpi)
+        plt.scatter(
+            self.t_data, self.x_data,
+            color="black", s=1.0, label="x measurements"
+        )
+        plt.scatter(
+            self.t_data, self.v_data,
+            color="tab:blue", s=1.0, label="v measurements"
+        )
+        plt.plot(
+            self.t_data,
+            self.predict(coords)[:, 0],
+            color="tab:red",
+            label="x simulation",
+        )
+        plt.plot(
+            self.t_data,
+            self.predict(coords)[:, 1],
+            color="tab:purple",
+            label="v simulation",
+        )
+        plt.legend()
+        plt.show()
+
+    def plot_simulation_x(self, coords, figsize=(7, 5), dpi=150):
+        """
+
+        Make a scatterplot showing the (t,x(t)) series provided to the model,
+        and a lineplot of a simulation using values provided in the coords arg.
+
+        Args:
+        coords(list of numbers): list of values for your model parameters to be
+        used in the simulation.
+        figsize(optional)(shape touple): proportions of the image in the same
+        format as pyplot. Default is (7, 5).
+        dpi(optional)(dpi): dots per inch as used in pyplot. Default is 150.
+
+        Returns:
+        Displays created figures.
+
+        """
+        plt.figure(figsize=figsize, dpi=dpi)
+        plt.scatter(
+            self.t_data, self.x_data,
+            color="black", s=1.0, label="x measurements"
+        )
+        plt.plot(
+            self.t_data,
+            self.predict(coords)[:, 0],
+            color="tab:red",
+            label="x simulation",
+        )
+        plt.legend()
+        plt.show()
+
+    def plot_simulation_v(self, coords, figsize=(7, 5), dpi=150):
+        """
+
+        Make a scatterplot showing the (t,v(t)) series provided to the model,
+        and a lineplot of a simulation using values provided in the coords arg.
+
+        Args:
+        coords(list of numbers): list of values for your model parameters to be
+        used in the simulation.
+        figsize(optional)(shape touple): proportions of the image in the same
+        format as pyplot. Default is (7, 5).
+        dpi(optional)(dpi): dots per inch as used in pyplot. Default is 150.
+
+        Returns:
+        Displays created figures.
+
+        """
+        plt.figure(figsize=figsize, dpi=dpi)
+        plt.scatter(
+            self.t_data, self.v_data,
+            color="tab:blue", s=1.0, label="v measurements"
+        )
+        plt.plot(
+            self.t_data,
+            self.predict(coords)[:, 1],
+            color="tab:purple",
+            label="v simulation",
+        )
+        plt.legend()
+        plt.show()
