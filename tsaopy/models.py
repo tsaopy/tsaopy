@@ -4,9 +4,9 @@ from multiprocessing import cpu_count, Pool
 from matplotlib import pyplot as plt
 import emcee
 
-from tsaopy2.f2pyauxmod import simulation, simulationv
-from tsaopy2.bendtools import (fitparams_info, params_array_shape,
-                               test_params_are_ok)
+from tsaopy.f2pyauxmod import simulation, simulationv
+from tsaopy.bendtools import (fitparams_info, params_array_shape,
+                              test_params_are_ok)
 
 # model classes
 
