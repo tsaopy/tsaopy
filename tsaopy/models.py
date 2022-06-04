@@ -4,15 +4,16 @@ from multiprocessing import cpu_count, Pool
 from matplotlib import pyplot as plt
 import emcee
 
-from tsaopy.f2pyauxmod import simulation, simulationv
-from tsaopy.bendtools import (fitparams_info, params_array_shape,
-                                test_params_are_ok)
+from tsaopy2.f2pyauxmod import simulation, simulationv
+from tsaopy2.bendtools import (fitparams_info, params_array_shape,
+                               test_params_are_ok)
 
 # model classes
 
 
 class PModel:
     """
+    Build tsaopy model object.
 
     This class builds tsaopy model objects. This object condenses all necessary
     variables to set up the ODE according to the parameters you provided plus
@@ -29,7 +30,6 @@ class PModel:
 
     def __init__(self, parameters, t_data, x_data, x_unc):
         """
-
         Initialice the instance.
 
         Args:
@@ -73,24 +73,30 @@ class PModel:
                       self.parray_shape[2][0],
                       self.parray_shape[2][1])
 
+        self.fx_fix = False
+        for p in self.params_to_fit:
+            if p.ptype == 'log_fx':
+                self.fx_fix = True
+                self.log_fx_loc = self.params_to_fit.index(p)
+
         self.mcmc_moves = None
         self.cpu_cores = cpu_count() - 2
 
     # simulations
 
     def setup_simulation_arrays(self, coords):
-
+        """Set up the parameters array used by a simulation."""
         na, nb, cn, cm, = self.alens
-        epx0v0, A, B, C, F = (np.zeros(3), np.zeros(na), np.zeros(nb),
-                              np.zeros((cn, cm)), np.zeros(3))
+        scalars, A, B, C, F = (np.zeros(3), np.zeros(na), np.zeros(nb),
+                               np.zeros((cn, cm)), np.zeros(3))
 
         for p in self.parameters:
             if p.ptype == "ep":
-                epx0v0[0] = p.value
+                scalars[0] = p.value
             if p.ptype == "x0":
-                epx0v0[1] = p.value
+                scalars[1] = p.value
             elif p.ptype == "v0":
-                epx0v0[2] = p.value
+                scalars[2] = p.value
             elif p.ptype == "a":
                 A[p.index - 1] = p.value
             elif p.ptype == "b":
@@ -101,24 +107,25 @@ class PModel:
             elif p.ptype == "f":
                 F[p.index - 1] = p.value
 
-        results = [epx0v0, A, B, C, F]
+        results = [scalars, A, B, C, F]
         ptf_index_info = self.ptf_info
 
         for q in ptf_index_info:
-            i = ptf_index_info.index(q)
-            results[q[0]][q[1]] = coords[i]
+            if q is not None:
+                i = ptf_index_info.index(q)
+                results[q[0]][q[1]] = coords[i]
 
         return results
 
     def predict(self, coords):
-
+        """Compute x(t) for a set of parameter values."""
         dt, tsplit, datalen = self.dt, self.tsplit, self.datalen
         na, nb, cn, cm, = self.alens
 
         epx0v0_simu, A_simu, B_simu, C_simu, F_simu = (
                                         self.setup_simulation_arrays(coords))
 
-        ep_simu, x0v0_simu = epx0v0_simu[0], epx0v0_simu[1:]
+        ep_simu, x0v0_simu = epx0v0_simu[0], epx0v0_simu[1:3]
 
         return simulation(x0v0_simu, A_simu, B_simu, C_simu, F_simu,
                           dt, tsplit * datalen, na, nb, cn, cm
@@ -127,6 +134,7 @@ class PModel:
     # mcmc stuff
 
     def log_prior(self, coefs):
+        """Compute the logarithmic prior of a set of parameter values."""
         result = 1
         for i in range(self.ndim):
             prob = self.priors_array[i](coefs[i])
@@ -137,13 +145,22 @@ class PModel:
         return np.log(result)
 
     def log_likelihood(self, coefs):
+        """Compute the logarithmic likelihood of a set of parameter values."""
         prediction = self.predict(coefs)
         if not np.isfinite(prediction[-1]):
             return -np.inf
-        ll = - 0.5 * np.sum(((prediction - self.x_data) / self.x_unc) ** 2)
+
+        if self.fx_fix:
+            log_fx = coefs[self.log_fx_loc]
+            s2 = self.x_unc ** 2 + prediction ** 2 * np.exp(2 * log_fx)
+            ll = - 0.5 * np.sum((prediction - self.x_data) ** 2 / s2 +
+                                np.log(s2))
+        else:
+            ll = - 0.5 * np.sum(((prediction - self.x_data) / self.x_unc) ** 2)
         return ll
 
     def log_probability(self, coefs):
+        """Compute the logarithmic probabilty of a set of parameter values."""
         lp = self.log_prior(coefs)
         if not np.isfinite(lp):
             return -np.inf
@@ -191,6 +208,7 @@ class PModel:
 
     def update_initvals(self, newinivalues):
         """
+        Update the starting values of the MCMC chain.
 
         Update the initial values of the MCMC chain, stored in the tsaopy model
         object mcmc_initvals attribute. Default is a list with the value
@@ -215,6 +233,7 @@ class PModel:
 
     def set_mcmc_moves(self, moves):
         """
+        Change the emcee moves used in the MCMC run.
 
         Set the mcmc_moves attribute in the tsaopy model instance. Default is
         None.
@@ -236,6 +255,7 @@ class PModel:
 
     def set_cpu_cores(self, cores):
         """
+        Set the # of CPU cores used by the emcee sampler.
 
         Set the cpu_cores attribute in the tsaopy model instance. Default is
         the total number of cores in the system, obtained with
@@ -255,6 +275,7 @@ class PModel:
 
     def update_tsplit(self, newtsplit):
         """
+        Change the integration time in simulations.
 
         Set the tsplit attribute in the tsaopy model instance which is used to
         set the time step for the numerical integrations.
@@ -283,6 +304,7 @@ class PModel:
 
     def neg_ll(self, coords):
         """
+        Compute neg ll.
 
         Compute the negative logarithmic likelihood for a set of parameter
         values for the defined model.
@@ -365,6 +387,7 @@ class PModel:
 
 class PVModel(PModel):
     """
+    Position and velocity model fitting.
 
     Similar to the PModel, this model ajusts the parameters to both x(t) and
     v(t) data. See the PModel docs for more info.
@@ -393,9 +416,14 @@ class PVModel(PModel):
         super().__init__(parameters, t_data, x_data, x_unc)
         self.v_data = v_data
         self.v_unc = v_unc
+        self.fv_fix = False
+        for p in self.params_to_fit:
+            if p.ptype == 'log_fv':
+                self.fv_fix = True
+                self.log_fv_loc = self.params_to_fit.index(p)
 
     def predict(self, coords):
-
+        """Compute x(t) and v(t) for a set of parameter values."""
         dt, tsplit, datalen = self.dt, self.tsplit, self.datalen
         na, nb, cn, cm, = self.alens
 
@@ -412,26 +440,39 @@ class PVModel(PModel):
         return simu_result
 
     def log_likelihood(self, coefs):
+        """Compute the logarithmic likelihood of a set of parameter values."""
         prediction = self.predict(coefs)
         predx, predv = prediction[:, 0], prediction[:, 1]
         if not np.isfinite(predv[-1]):
             return -np.inf
-        ll = - 0.5 * np.sum(((predx - self.x_data) / self.x_unc) ** 2) \
-             - 0.5 * np.sum(((predv - self.v_data) / self.v_unc) ** 2)
+
+        if self.fx_fix:
+            log_fx = coefs[self.log_fx_loc]
+            s2_x = self.x_unc ** 2 + predx ** 2 * np.exp(2 * log_fx)
+            ll = - 0.5 * np.sum((predx - self.x_data) ** 2 / s2_x +
+                                np.log(s2_x))
+        else:
+            ll = - 0.5 * np.sum(((predx - self.x_data) / self.x_unc) ** 2)
+
+        if self.fv_fix:
+            log_fv = coefs[self.log_fv_loc]
+            s2_v = self.v_unc ** 2 + predv ** 2 * np.exp(2 * log_fv)
+            ll = ll - 0.5 * np.sum((predv - self.v_data) ** 2 / s2_v +
+                                   np.log(s2_v))
+        else:
+            ll = ll - 0.5 * np.sum(((predv - self.v_data) / self.v_unc) ** 2)
+
         return ll
 
     def log_probability(self, coefs):
+        """Compute the logarithmic probability of a set of parameter values."""
         lp = self.log_prior(coefs)
         if not np.isfinite(lp):
             return -np.inf
         return lp + self.log_likelihood(coefs)
 
     def setup_sampler(self, n_walkers, burn_iter, main_iter):
-        """
-
-        See docs for PModel.
-
-        """
+        """See docs for PModel."""
         p0 = [self.mcmc_initvals + 1e-7 * np.random.randn(self.ndim)
               for i in range(n_walkers)]
 
@@ -454,11 +495,7 @@ class PVModel(PModel):
     # tools
 
     def neg_ll(self, coords):
-        """
-
-        See docs for PModel.
-
-        """
+        """See docs for PModel."""
         return -self.log_probability(coords)
 
     # plots
