@@ -12,6 +12,7 @@ from tsaopy.bendtools import test_var_is_number
 
 class uniform_prior:
     """
+    Define uniform PDF callable.
 
     Defines a probability distribution object. An instance of this class can be
     called to compute the probability density of a float, and it only takes the
@@ -19,12 +20,10 @@ class uniform_prior:
 
     The uniform prior distribution is defined as in the usual mathematical
     convention and is given normalized.
-
     """
 
     def __init__(self, xmin, xmax):
         """
-
         Initialice the instance.
 
         Args:
@@ -33,7 +32,6 @@ class uniform_prior:
 
         Returns:
         tsaopy pdf object instance.
-
         """
         if not test_var_is_number(xmin) or not test_var_is_number(xmax):
             sys.exit("tsaopy priors error: input parameters are not real "
@@ -46,7 +44,6 @@ class uniform_prior:
 
     def __call__(self, x):
         """
-
         Compute the probability of a real valued variable.
 
         Args:
@@ -54,7 +51,6 @@ class uniform_prior:
 
         Returns:
         p(x) as per the mathematical definition of the PDF.
-
         """
         p = 1 if x < self.xmax and x > self.xmin else 0
         return p / (self.xmax - self.xmin)
@@ -62,6 +58,7 @@ class uniform_prior:
 
 class normal_prior:
     """
+    Define normal PDF callable.
 
     Define a probability distribution object. An instance of this class can be
     called to compute the probability density of a float, and it only takes the
@@ -69,12 +66,10 @@ class normal_prior:
 
     The normal (aka Gaussian) prior distribution is defined as in the usual
     mathematical convention and is given normalized.
-
     """
 
     def __init__(self, x0, sigma):
         """
-
         Initialice the instance.
 
         Args:
@@ -83,7 +78,6 @@ class normal_prior:
 
         Returns:
         tsaopy pdf object instance.
-
         """
         if not test_var_is_number(x0) or not test_var_is_number(sigma):
             sys.exit("tsaopy priors error: input parameters are not real "
@@ -93,7 +87,6 @@ class normal_prior:
 
     def __call__(self, x):
         """
-
         Compute the probability of a real valued variable.
 
         Args:
@@ -101,7 +94,6 @@ class normal_prior:
 
         Returns:
         p(x) as per the mathematical definition of the PDF.
-
         """
         p = (np.exp(-0.5 * ((x - self.x0) / self.sigma) ** 2)) / sqrt(
             2 * np.pi) / self.sigma
@@ -113,7 +105,6 @@ class normal_prior:
 
 def cornerplots(flat_samples, labels_list):
     """
-
     Make cornerplots given a sample and a list of labels for each parameter.
 
     The middle red line on each PDF marks the median, which is also the central
@@ -127,7 +118,6 @@ def cornerplots(flat_samples, labels_list):
 
     Returns:
     Displays created figures.
-
     """
     dim = len(labels_list)
     sample_medians = [np.median(flat_samples[:, _]) for _ in range(dim)]
@@ -146,13 +136,13 @@ def cornerplots(flat_samples, labels_list):
 
 def traceplots(samples, labels_list):
     """
-
-    Make traceplots for each parameter of a given sample. Notice that in this
-    case the samples object is not given flattened.
+    Make traceplots for each parameter of a given sample.
 
     A trace plot shows the evolution of each walker for a parameter during an
     MCMC run. This is used for analyzing the convergence of an MCMC chain, or
     to diagnose problems in a not converging chain.
+
+    Notice that in this case the samples object is not given flattened.
 
     Args:
     samples(array): non flattened array of samples.
@@ -179,6 +169,7 @@ def traceplots(samples, labels_list):
 
 def autocplots(flat_samples, labels_list):
     """
+    Plot autocorrelation functions for each parameter.
 
     Plot the autocorrelation function for each parameter of a given sample
     using the function_1d callable provided in emcee.autocorr. It is used to
