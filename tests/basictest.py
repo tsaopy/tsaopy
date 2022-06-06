@@ -65,10 +65,10 @@ b1_prior = tsaopy.tools.uniform_prior(0.0,5.0)
     
 # parameters
 
-x0 = tsaopy.parameters.Fitting(1.0,'x0',1,x0_prior)
-v0 = tsaopy.parameters.Fitting(0.0,'v0',1,v0_prior)
-a1 = tsaopy.parameters.Fitting(0.0, 'a', 1, a1_prior)
-b1 = tsaopy.parameters.Fitting(0.5,'b',1,b1_prior)
+x0 = tsaopy.parameters.Fitting(1.0,'x0',x0_prior)
+v0 = tsaopy.parameters.Fitting(0.0,'v0',v0_prior)
+a1 = tsaopy.parameters.Fitting(0.0, 'a', a1_prior,1)
+b1 = tsaopy.parameters.Fitting(0.5,'b',b1_prior,1)
 
 parameters = [x0,v0,a1,b1]
 
