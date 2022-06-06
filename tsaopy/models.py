@@ -13,41 +13,36 @@ from tsaopy.bendtools import (fitparams_info, params_array_shape,
 
 class PModel:
     """
-    Build tsaopy model object.
+    Build `tsaopy` model object.
 
-    This class builds tsaopy model objects. This object condenses all necessary
-    variables to set up the ODE according to the parameters you provided plus
-    the MCMC configuration to do the fitting.
+    This object condenses all necessary variables to set up the ODE according
+    to the parameters provided plus the MCMC configuration to do the fitting.
 
     It includes some QOL methods suchs as changing the initial values of the
     chain, the time step for the simulations, the number of CPU cores used
     during simulations, and type of emcee moves used in the MCMC chain. It also
     includes some plotting methods.
 
-    This model class only uses x(t) information for the fitting.
-
+    This class only uses x(t) information for the fitting.
     """
 
     def __init__(self, parameters, t_data, x_data, x_unc):
         """
-        Initialice the instance.
-
-        Args:
-        parameters(list of tsaopy parameter instances): the list of parameters
-        that will be considered in your model. There must be at least three
-        parameters including the initial conditions and one ODE coefficient.
-        There can't be repeated parameters (two parameters having the same
-        ptype and index).
-        t_data(array): array with the time axis of your measurements.
-        x_data(array): array with your measurements.
-        x_unc(array or number): uncertainty of your measurements. It can be
-        either a single number representing the uncertainty of all measurements
-        or an array of the same length of t_data and x_data with a unique value
-        for each measurement.
-
-        Returns:
-        tsaopy model object instance.
-
+        Parameters
+        ----------
+        parameters : list
+            the list of parameters that will be considered in the model. There
+            must be at least three parameters including the initial conditions
+            and one ODE coefficient. There can't be repeated parameters (two
+            parameters having the same ptype and index).
+        t_data : array
+            array with the time axis of the measurements..
+        x_data : array
+            array with the position measurements.
+        x_unc : float or int, or array
+            uncertainty of your measurements. It can be either a single number
+            representing the uncertainty of all measurements or an array of the
+            same length as x_data with a unique value for each measurement.
         """
         test_params_are_ok(parameters)
 
@@ -168,22 +163,32 @@ class PModel:
 
     def setup_sampler(self, n_walkers, burn_iter, main_iter):
         """
+        Set up the `emcee` Sampler object and run the MCMC chain.
 
-        Set up the emcee Sampler object. See emcee docs for more details.
+        See `emcee` docs for more details.
 
-        Args:
-        n_walkers(int): the number of parallel Markov Chains run by the
-        sampler. Check emcee docs for more details.
-        burn_iter(int): the number of steps that your chain will do during the
-        burn in phase. The samples produced during the burn in phase are not
-        saved.
-        main_iter(int): the number of steps that your chain will do during the
-        production phase. The samples produced during the production phase are
-        saved in the sampler and can be extracted for later analysis.
+        Parameters such as the number of CPU cores and `emcee` moves used by
+        the sampler can be changed from the model attributes before running
+        this method. See the full docs of the model classes for more details.
 
-        Returns:
-        emcee Sampler object instance.
+        Parameters
+        ----------
+        n_walkers : int
+            the number of walkers in the MCMC chain. See `emcee` docs for more
+            details.
+        burn_iter : int
+            the number of steps that your chain will do during the burn in
+            phase. The samples produced during burn in phase are discarded.
+        main_iter : int
+            the number of steps that your chain will do during the production
+            phase. The samples produced during production phase are saved in
+            the sampler and can be extracted for later analysis.
 
+        Returns
+        -------
+        sampler : emcee Sampler instance
+            Returns the `emcee` ensemble sampler after running MCMC. See
+            `emcee` docs for more details.
         """
         p0 = [self.mcmc_initvals + 1e-7 * np.random.randn(self.ndim)
               for i in range(n_walkers)]
@@ -202,7 +207,7 @@ class PModel:
             print("Running production...")
             pos, prob, state = sampler.run_mcmc(p0, main_iter, progress=True)
 
-            return sampler, pos, prob, state
+            return sampler
 
     # tools
 
@@ -210,66 +215,57 @@ class PModel:
         """
         Update the starting values of the MCMC chain.
 
-        Update the initial values of the MCMC chain, stored in the tsaopy model
-        object mcmc_initvals attribute. Default is a list with the value
-        attribute for each parameter supplied to the model at initialization.
+        Update the initial values of the MCMC chain stored in the `tsaopy`
+        model instance `mcmc_initvals` attribute. Default is a list with the
+        value attribute for each parameter supplied to the model at
+        initialization.
 
-        This attribute is supplied to the emcee Sampler object when you call
-        the setup_sampler method of the tsaopy model object. You can run MCMC
-        chains for the same model with different initial values by updating the
-        attribute with this method before you run each chain.
+        This attribute is supplied to the `emcee` Sampler object when
+        `setup_sampler`.
 
-        Args:
-        newinivalues(list of int or float): the new values for the initial
-        values of the MCMC chain. The elements in the list must be passed in
-        the same order than the parameters arg that was passed when creating
-        the model.
-
-        Returns:
-        None.
-
+        Parameters
+        ----------
+        newinivalues : list or array
+            the new values for the initial  values of the MCMC chain. The
+            elements must be passed in the same order than the parameters
+            arg that was passed when initializing the model.
         """
         self.mcmc_initvals = newinivalues
 
     def set_mcmc_moves(self, moves):
         """
-        Change the emcee moves used in the MCMC run.
+        Change the `emcee` moves used in the MCMC run.
 
-        Set the mcmc_moves attribute in the tsaopy model instance. Default is
-        None.
+        Set the mcmc_moves attribute in the `tsaopy` model instance. Default is
+        None. This attribute is supplied to the `emcee` Sampler object when the
+        setup_sampler method of the `tsaopy` model object is called. It's
+        possible to run MCMC chains for the same model with different moves by
+        updating the attribute with this method before each chain is run.
 
-        This attribute is supplied to the emcee Sampler object when you call
-        the setup_sampler method of the tsaopy model object. You can run MCMC
-        chains for the same model with different moves by updating the
-        attribute with this method before you run each chain.
+        Parameters
+        ----------
+        moves : emcee moves instance
+            the `emcee` moves instance to be supplied to the sampler.
 
-        Args:
-        moves(emcee moves object instance): the emcee moves instance you want
-        to supply to the sampler.
-
-        Returns:
-        None
 
         """
         self.mcmc_moves = moves
 
     def set_cpu_cores(self, cores):
         """
-        Set the # of CPU cores used by the emcee sampler.
+        Set the number of CPU cores used by the emcee sampler.
 
-        Set the cpu_cores attribute in the tsaopy model instance. Default is
+        Set the cpu_cores attribute in the `tsaopy` model instance. Default is
         the total number of cores in the system, obtained with
-        multiprocessing.cpu_count, minus two.
+        `multiprocessing.cpu_count`, minus two.
 
         This attribute is supplied to the emcee Sampler object when you call
         the setup_sampler method of the tsaopy model object.
 
-        Args:
-        cores(int): number of CPU cores you want the MCMC sampler to use.
-
-        Returns:
-        None
-
+        Parameters
+        ----------
+        cores : int
+            number of CPU cores to be used by the `emcee` sampler.
         """
         self.cpu_cores = cores
 
@@ -277,26 +273,24 @@ class PModel:
         """
         Change the integration time in simulations.
 
-        Set the tsplit attribute in the tsaopy model instance which is used to
-        set the time step for the numerical integrations.
+        Set the `tsplit` attribute in the `tsaopy` model instance, which is
+        used to set the time step for the numerical integrations.
 
         The time step in the numerical integration is computed as
 
         dt = (tf - t0)/(ndata-1)/tsplit
 
         This means that the time step is obtained by dividing the difference
-        between consecutive t values over tsplit. Default tsplit value is 4.
+        between consecutive t values over `tsplit`. Default value is 4.
         Users that want to improve computing time may reduce this attribute
         to 3, 2, or 1, at the expense of a possible precission loss in the
         numerical simulations.
 
-        Args:
-        tsplit(int): the new value for tsplit that will also update the
-        integration time step.
-
-        Returns:
-        None
-
+        Parameters
+        ----------
+        newtsplit : int
+            the new value for tsplit that will also update the integration
+            time step.
         """
         self.tsplit = newtsplit
         self.dt = (self.t_data[-1] - self.t0) / (
@@ -304,28 +298,29 @@ class PModel:
 
     def neg_ll(self, coords):
         """
-        Compute neg ll.
+        Compute the negative logarithmic likelihood.
 
         Compute the negative logarithmic likelihood for a set of parameter
-        values for the defined model.
+        values for the defined model. This is best used when optimizing the
+        initial values with an external optimizer.
 
-        This is best used when optimizing the initial values with an external
-        optimizer, eg:
+        Parameters
+        ----------
+        coords : list or array
+            values for each parameter. The elements must be passed in the same
+            order than the parameters arg that was passed when initializing the
+            model.
 
-        f_to_minimize = my_model.neg_ll
-        external_function_minimizer(f_to_minimize, *args)
+        Returns
+        -------
+        float
+            value of `neg_ll` for the given parameter values.
 
-        If your optimizer looks to maximize the function you should use
-        my_model.log_likelihood instead.
+        Examples
+        -------
 
-        Args:
-        coords(list or array of numbers): values for each parameter in your
-        model.
-
-        Returns:
-        The value of neg ll for this set of parameters. See emcee docs for
-        more info.
-
+            f_to_minimize = my_model.neg_ll
+            external_function_minimizer(f_to_minimize, *args)
         """
         return -self.log_probability(coords)
 
@@ -333,17 +328,18 @@ class PModel:
 
     def plot_measurements(self, figsize=(7, 5), dpi=150):
         """
-
         Make a scatterplot showing the (t,x(t)) series provided to the model.
 
-        Args:
-        figsize(optional)(shape touple): proportions of the image in the same
-        format as pyplot. Default is (7, 5).
-        dpi(optional)(dpi): dots per inch as used in pyplot. Default is 150.
+        Parameters
+        ----------
+        figsize : tuple, optional
+            proportions of the image passed to pyplot. The default is (7, 5).
+        dpi : TYPE, optional
+            dots per inch passed to pyplot. The default is 150.
 
-        Returns:
+        Returns
+        -------
         Displays created figures.
-
         """
         plt.figure(figsize=figsize, dpi=dpi)
         plt.scatter(
@@ -355,20 +351,23 @@ class PModel:
 
     def plot_simulation(self, coords, figsize=(7, 5), dpi=150):
         """
-
         Make a scatterplot showing the (t,x(t)) series provided to the model,
         and a lineplot of a simulation using values provided in the coords arg.
 
-        Args:
-        coords(list of numbers): list of values for your model parameters to be
-        used in the simulation.
-        figsize(optional)(shape touple): proportions of the image in the same
-        format as pyplot. Default is (7, 5).
-        dpi(optional)(dpi): dots per inch as used in pyplot. Default is 150.
+        Parameters
+        ----------
+        coords : list or array
+            values for each parameter. The elements must be passed in the same
+            order than the parameters arg that was passed when initializing the
+            model.
+        figsize : tuple, optional
+            proportions of the image passed to pyplot. The default is (7, 5).
+        dpi : TYPE, optional
+            dots per inch passed to pyplot. The default is 150.
 
-        Returns:
+        Returns
+        -------
         Displays created figures.
-
         """
         plt.figure(figsize=figsize, dpi=dpi)
         plt.scatter(
@@ -387,31 +386,43 @@ class PModel:
 
 class PVModel(PModel):
     """
-    Position and velocity model fitting.
+    Build `tsaopy` model object.
 
-    Similar to the PModel, this model ajusts the parameters to both x(t) and
-    v(t) data. See the PModel docs for more info.
+    This object condenses all necessary variables to set up the ODE according
+    to the parameters provided plus the MCMC configuration to do the fitting.
 
+    It includes some QOL methods suchs as changing the initial values of the
+    chain, the time step for the simulations, the number of CPU cores used
+    during simulations, and type of emcee moves used in the MCMC chain. It also
+    includes some plotting methods.
+
+    This class fits the parameters to both x(t) and v(t) data.
     """
 
     def __init__(self, parameters, t_data, x_data, v_data, x_unc, v_unc):
         """
-
-        Initialice the instance.
-
-        Args:
-        parameters(list of tsaopy parameter instancs): see docs for PModel.
-        t_data(array): array with the time axis of your measurements.
-        x_data(array): array with your x(t) measurements.
-        v_data(array): array with your v(t) measurements. Note that there can't
-        be a scale factor between x(t) and v(t), v(t) must be exactly equal to
-        the time derivative of x(t).
-        x_unc(array or number): see docs for PModel.
-        v_unc(array or number): same as x_unc but for v(t) measurements.
-
-        Returns:
-        tsaopy model object instance.
-
+        Parameters
+        ----------
+        parameters : list
+            the list of parameters that will be considered in the model. There
+            must be at least three parameters including the initial conditions
+            and one ODE coefficient. There can't be repeated parameters (two
+            parameters having the same ptype and index).
+        t_data : array
+            array with the time axis of the measurements.
+        x_data : array
+            array with the position measurements.
+        v_data : array
+            array with the velocity measurements. Note that there can't be a
+            scale factor between x(t) and v(t), v(t) must be exactly equal
+            to the time derivative of x(t).
+        x_unc : float or int, or array
+            uncertainty of the x(t) measurements. It can be either a single
+            number representing the uncertainty of all measurements or an array
+            of the same length as `x_data` with a unique value for each
+            measurement.
+        v_unc : float or int, or array
+            same as `x_unc` but for v(t) measurements.
         """
         super().__init__(parameters, t_data, x_data, x_unc)
         self.v_data = v_data
@@ -472,7 +483,34 @@ class PVModel(PModel):
         return lp + self.log_likelihood(coefs)
 
     def setup_sampler(self, n_walkers, burn_iter, main_iter):
-        """See docs for PModel."""
+        """
+        Set up the `emcee` Sampler object and run the MCMC chain.
+
+        See `emcee` docs for more details.
+
+        Parameters such as the number of CPU cores and `emcee` moves used by
+        the sampler can be changed from the model attributes before running
+        this method. See the full docs of the model classes for more details.
+
+        Parameters
+        ----------
+        n_walkers : int
+            the number of walkers in the MCMC chain. See `emcee` docs for more
+            details.
+        burn_iter : int
+            the number of steps that your chain will do during the burn in
+            phase. The samples produced during burn in phase are discarded.
+        main_iter : int
+            the number of steps that your chain will do during the production
+            phase. The samples produced during production phase are saved in
+            the sampler and can be extracted for later analysis.
+
+        Returns
+        -------
+        sampler : emcee Sampler instance
+            Returns the `emcee` ensemble sampler after running MCMC. See
+            `emcee` docs for more details.
+        """
         p0 = [self.mcmc_initvals + 1e-7 * np.random.randn(self.ndim)
               for i in range(n_walkers)]
 
@@ -490,7 +528,7 @@ class PVModel(PModel):
             print("Running production...")
             pos, prob, state = sampler.run_mcmc(p0, main_iter, progress=True)
 
-            return sampler, pos, prob, state
+            return sampler
 
     # tools
 
@@ -502,18 +540,19 @@ class PVModel(PModel):
 
     def plot_measurements(self, figsize=(7, 5), dpi=150):
         """
-
         Make a scatterplot showing both the (t,x(t)) and (t,v(t)) series
         provided to the model.
 
-        Args:
-        figsize(optional)(shape touple): proportions of the image in the same
-        format as pyplot. Default is (7, 5).
-        dpi(optional)(dpi): dots per inch as used in pyplot. Default is 150.
+        Parameters
+        ----------
+        figsize : tuple, optional
+            proportions of the image passed to pyplot. The default is (7, 5).
+        dpi : TYPE, optional
+            dots per inch passed to pyplot. The default is 150.
 
-        Returns:
+        Returns
+        -------
         Displays created figures.
-
         """
         plt.figure(figsize=figsize, dpi=dpi)
         plt.scatter(
@@ -529,17 +568,18 @@ class PVModel(PModel):
 
     def plot_measurements_x(self, figsize=(7, 5), dpi=150):
         """
-
         Make a scatterplot showing the (t,x(t)) series provided to the model.
 
-        Args:
-        figsize(optional)(shape touple): proportions of the image in the same
-        format as pyplot. Default is (7, 5).
-        dpi(optional)(dpi): dots per inch as used in pyplot. Default is 150.
+        Parameters
+        ----------
+        figsize : tuple, optional
+            proportions of the image passed to pyplot. The default is (7, 5).
+        dpi : TYPE, optional
+            dots per inch passed to pyplot. The default is 150.
 
-        Returns:
+        Returns
+        -------
         Displays created figures.
-
         """
         plt.figure(figsize=figsize, dpi=dpi)
         plt.scatter(
@@ -551,17 +591,18 @@ class PVModel(PModel):
 
     def plot_measurements_v(self, figsize=(7, 5), dpi=150):
         """
-
         Make a scatterplot showing the (t,v(t)) series provided to the model.
 
-        Args:
-        figsize(optional)(shape touple): proportions of the image in the same
-        format as pyplot. Default is (7, 5).
-        dpi(optional)(dpi): dots per inch as used in pyplot. Default is 150.
+        Parameters
+        ----------
+        figsize : tuple, optional
+            proportions of the image passed to pyplot. The default is (7, 5).
+        dpi : TYPE, optional
+            dots per inch passed to pyplot. The default is 150.
 
-        Returns:
+        Returns
+        -------
         Displays created figures.
-
         """
         plt.figure(figsize=figsize, dpi=dpi)
         plt.scatter(
@@ -573,21 +614,24 @@ class PVModel(PModel):
 
     def plot_simulation(self, coords, figsize=(7, 5), dpi=150):
         """
-
         Make a scatterplot showing both the (t,x(t)) and (t,v(t)) series
         provided to the model, and lineplots of a simulation using values
         provided in the coords arg.
 
-        Args:
-        coords(list of numbers): list of values for your model parameters to be
-        used in the simulation.
-        figsize(optional)(shape touple): proportions of the image in the same
-        format as pyplot. Default is (7, 5).
-        dpi(optional)(dpi): dots per inch as used in pyplot. Default is 150.
+        Parameters
+        ----------
+        coords : list or array
+            values for each parameter. The elements must be passed in the same
+            order than the parameters arg that was passed when initializing the
+            model.
+        figsize : tuple, optional
+            proportions of the image passed to pyplot. The default is (7, 5).
+        dpi : TYPE, optional
+            dots per inch passed to pyplot. The default is 150.
 
-        Returns:
+        Returns
+        -------
         Displays created figures.
-
         """
         plt.figure(figsize=figsize, dpi=dpi)
         plt.scatter(
@@ -615,20 +659,23 @@ class PVModel(PModel):
 
     def plot_simulation_x(self, coords, figsize=(7, 5), dpi=150):
         """
-
         Make a scatterplot showing the (t,x(t)) series provided to the model,
         and a lineplot of a simulation using values provided in the coords arg.
 
-        Args:
-        coords(list of numbers): list of values for your model parameters to be
-        used in the simulation.
-        figsize(optional)(shape touple): proportions of the image in the same
-        format as pyplot. Default is (7, 5).
-        dpi(optional)(dpi): dots per inch as used in pyplot. Default is 150.
+        Parameters
+        ----------
+        coords : list or array
+            values for each parameter. The elements must be passed in the same
+            order than the parameters arg that was passed when initializing the
+            model.
+        figsize : tuple, optional
+            proportions of the image passed to pyplot. The default is (7, 5).
+        dpi : TYPE, optional
+            dots per inch passed to pyplot. The default is 150.
 
-        Returns:
+        Returns
+        -------
         Displays created figures.
-
         """
         plt.figure(figsize=figsize, dpi=dpi)
         plt.scatter(
@@ -646,20 +693,23 @@ class PVModel(PModel):
 
     def plot_simulation_v(self, coords, figsize=(7, 5), dpi=150):
         """
-
         Make a scatterplot showing the (t,v(t)) series provided to the model,
         and a lineplot of a simulation using values provided in the coords arg.
 
-        Args:
-        coords(list of numbers): list of values for your model parameters to be
-        used in the simulation.
-        figsize(optional)(shape touple): proportions of the image in the same
-        format as pyplot. Default is (7, 5).
-        dpi(optional)(dpi): dots per inch as used in pyplot. Default is 150.
+        Parameters
+        ----------
+        coords : list or array
+            values for each parameter. The elements must be passed in the same
+            order than the parameters arg that was passed when initializing the
+            model.
+        figsize : tuple, optional
+            proportions of the image passed to pyplot. The default is (7, 5).
+        dpi : TYPE, optional
+            dots per inch passed to pyplot. The default is 150.
 
-        Returns:
+        Returns
+        -------
         Displays created figures.
-
         """
         plt.figure(figsize=figsize, dpi=dpi)
         plt.scatter(

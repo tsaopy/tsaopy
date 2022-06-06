@@ -16,7 +16,7 @@ def mode(data, xmin=None, xmax=None, bw=None, xr_fr=.1):
     Compute the mode of a 1D array of numerical values.
 
     Compute the mode of an array of values using a kernel density estimation
-    method. The KDE method used is scipy.stats.gaussian_kde.
+    method. The KDE method used is `scipy.stats.gaussian_kde`.
 
     In multimodal distributions it should return the mode of the highest peak.
 
@@ -193,7 +193,7 @@ def traceplots(samples, labels_list):
     MCMC run. This is used for analyzing the convergence of an MCMC chain, or
     to diagnose problems in a not converging chain.
 
-    Notice that in this case the samples object is not given flattened.
+    Notice that for this plot the samples array is not given flattened.
 
     Parameters
     ----------
@@ -222,20 +222,16 @@ def traceplots(samples, labels_list):
 
 def autocplots(flat_samples, labels_list):
     """
-    Plot autocorrelation functions for each parameter.
+    Plot autocorrelation function for each parameter.
 
-    Plot the autocorrelation function for each parameter of a given sample
-    using the function_1d callable provided in emcee.autocorr. It is used to
-    asses the convergence of an MCMC chain.
+    Plot the autocorrelation function for each parameter of a given sample. The
+    function is computed with `emcee.autocorr.function_1d`. It is used to asses
+    the convergence of an MCMC chain.
 
     An autocorrelation function that quickly drops from 1 to 0, and keeps
     oscillating around 0 afterwards suggests that the samples might come from a
-    converged chain. It is not a final answer and you shoud try other tests at
-    the same time.
-
-    If the autocorrelation function does not show the behaviour described above
-    you cannot trust that the chain has converged and therefore that your
-    results are acceptable.
+    converged chain. It is not a final answer and running other tests at the
+    same time is advised.
 
     Parameters
     ----------
