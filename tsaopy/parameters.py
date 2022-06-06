@@ -1,5 +1,5 @@
 import sys
-from tsaopy.bendtools import test_var_is_number
+from tsaopy._bendtools import test_var_is_number
 
 #                               PARAMETER CLASSES
 
