@@ -79,7 +79,7 @@ class PModel:
 
     # simulations
 
-    def setup_simulation_arrays(self, coords):
+    def _setup_simulation_arrays(self, coords):
         """Set up the parameters array used by a simulation."""
         na, nb, cn, cm, = self.alens
         scalars, A, B, C, F = (np.zeros(3), np.zeros(na), np.zeros(nb),
@@ -112,13 +112,13 @@ class PModel:
 
         return results
 
-    def predict(self, coords):
+    def _predict(self, coords):
         """Compute x(t) for a set of parameter values."""
         dt, tsplit, datalen = self.dt, self.tsplit, self.datalen
         na, nb, cn, cm, = self.alens
 
         epx0v0_simu, A_simu, B_simu, C_simu, F_simu = (
-                                        self.setup_simulation_arrays(coords))
+                                        self._setup_simulation_arrays(coords))
 
         ep_simu, x0v0_simu = epx0v0_simu[0], epx0v0_simu[1:3]
 
@@ -128,7 +128,7 @@ class PModel:
 
     # mcmc stuff
 
-    def log_prior(self, coefs):
+    def _log_prior(self, coefs):
         """Compute the logarithmic prior of a set of parameter values."""
         result = 1
         for i in range(self.ndim):
@@ -139,9 +139,9 @@ class PModel:
                 result = result * prob
         return np.log(result)
 
-    def log_likelihood(self, coefs):
+    def _log_likelihood(self, coefs):
         """Compute the logarithmic likelihood of a set of parameter values."""
-        prediction = self.predict(coefs)
+        prediction = self._predict(coefs)
         if not np.isfinite(prediction[-1]):
             return -np.inf
 
@@ -154,12 +154,12 @@ class PModel:
             ll = - 0.5 * np.sum(((prediction - self.x_data) / self.x_unc) ** 2)
         return ll
 
-    def log_probability(self, coefs):
+    def _log_probability(self, coefs):
         """Compute the logarithmic probabilty of a set of parameter values."""
-        lp = self.log_prior(coefs)
+        lp = self._log_prior(coefs)
         if not np.isfinite(lp):
             return -np.inf
-        return lp + self.log_likelihood(coefs)
+        return lp + self._log_likelihood(coefs)
 
     def setup_sampler(self, n_walkers, burn_iter, main_iter):
         """
@@ -195,7 +195,7 @@ class PModel:
 
         with Pool(processes=self.cpu_cores) as pool:
             sampler = emcee.EnsembleSampler(n_walkers, self.ndim,
-                                            self.log_probability,
+                                            self._log_probability,
                                             moves=self.mcmc_moves, pool=pool)
 
             print("")
@@ -318,11 +318,10 @@ class PModel:
 
         Examples
         -------
-
             f_to_minimize = my_model.neg_ll
             external_function_minimizer(f_to_minimize, *args)
         """
-        return -self.log_probability(coords)
+        return -self._log_likelihood(coords)
 
     # plots
 
@@ -375,7 +374,7 @@ class PModel:
             color="black", s=1.0, label="x measurements"
             )
         plt.plot(
-            self.t_data, self.predict(coords),
+            self.t_data, self._predict(coords),
             color="tab:red", label="x simulation"
             )
         plt.legend()
@@ -433,13 +432,13 @@ class PVModel(PModel):
                 self.fv_fix = True
                 self.log_fv_loc = self.params_to_fit.index(p)
 
-    def predict(self, coords):
+    def _predict(self, coords):
         """Compute x(t) and v(t) for a set of parameter values."""
         dt, tsplit, datalen = self.dt, self.tsplit, self.datalen
         na, nb, cn, cm, = self.alens
 
         epx0v0_simu, A_simu, B_simu, C_simu, F_simu = (
-                                        self.setup_simulation_arrays(coords))
+                                        self._setup_simulation_arrays(coords))
 
         ep_simu, x0v0_simu = epx0v0_simu[0], epx0v0_simu[1:]
 
@@ -450,9 +449,9 @@ class PVModel(PModel):
         simu_result[:, 0] = simu_result[:, 0] + ep_simu
         return simu_result
 
-    def log_likelihood(self, coefs):
+    def _log_likelihood(self, coefs):
         """Compute the logarithmic likelihood of a set of parameter values."""
-        prediction = self.predict(coefs)
+        prediction = self._predict(coefs)
         predx, predv = prediction[:, 0], prediction[:, 1]
         if not np.isfinite(predv[-1]):
             return -np.inf
@@ -475,12 +474,12 @@ class PVModel(PModel):
 
         return ll
 
-    def log_probability(self, coefs):
+    def _log_probability(self, coefs):
         """Compute the logarithmic probability of a set of parameter values."""
-        lp = self.log_prior(coefs)
+        lp = self._log_prior(coefs)
         if not np.isfinite(lp):
             return -np.inf
-        return lp + self.log_likelihood(coefs)
+        return lp + self._log_likelihood(coefs)
 
     def setup_sampler(self, n_walkers, burn_iter, main_iter):
         """
@@ -516,7 +515,7 @@ class PVModel(PModel):
 
         with Pool(processes=self.cpu_cores) as pool:
             sampler = emcee.EnsembleSampler(n_walkers, self.ndim,
-                                            self.log_probability,
+                                            self._log_probability,
                                             moves=self.mcmc_moves, pool=pool)
 
             print("")
@@ -534,7 +533,7 @@ class PVModel(PModel):
 
     def neg_ll(self, coords):
         """See docs for PModel."""
-        return -self.log_probability(coords)
+        return -self._log_likelihood(coords)
 
     # plots
 
@@ -644,13 +643,13 @@ class PVModel(PModel):
         )
         plt.plot(
             self.t_data,
-            self.predict(coords)[:, 0],
+            self._predict(coords)[:, 0],
             color="tab:red",
             label="x simulation",
         )
         plt.plot(
             self.t_data,
-            self.predict(coords)[:, 1],
+            self._predict(coords)[:, 1],
             color="tab:purple",
             label="v simulation",
         )
@@ -684,7 +683,7 @@ class PVModel(PModel):
         )
         plt.plot(
             self.t_data,
-            self.predict(coords)[:, 0],
+            self._predict(coords)[:, 0],
             color="tab:red",
             label="x simulation",
         )
@@ -718,7 +717,7 @@ class PVModel(PModel):
         )
         plt.plot(
             self.t_data,
-            self.predict(coords)[:, 1],
+            self._predict(coords)[:, 1],
             color="tab:purple",
             label="v simulation",
         )
