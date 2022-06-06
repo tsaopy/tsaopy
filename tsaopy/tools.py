@@ -6,7 +6,7 @@ import corner
 from emcee.autocorr import function_1d
 from scipy.stats import gaussian_kde
 
-from tsaopy.bendtools import test_var_is_number
+from tsaopy._bendtools import test_var_is_number
 
 
 #                           Aux functions
