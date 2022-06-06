@@ -19,27 +19,27 @@ class Fixed:
 
     def __init__(self, value, ptype, index=None):
         """
-        Initialice the instance.
+        Parameters
+        ----------
+        value : int or float
+            numerical value associated with the parameter. If parameter is
+            Fixed it's the value assigned.
+        ptype : str
+            string with the values ep, x0, v0, log_fx, log_fv, a, b, c, or f.
+            Used to identify if the parameter is an initial condition, an ODE
+            coefficient, or another kind of parameter.
+        index : int or touple, optional
+            not necessary for ep, x0, v0, log_fx and log_fv ptypes (does
+            nothing). Necessary for a, b, c, and f ptypes. If not set for those
+            ptypes it will cause errors when building TSAOpy models.
 
-        Args:
-        value(int or float):  numerical value associated with the parameter.
-        If parameter is Fixed it's the value assigned.
-        ptype(str): string with the values ep, x0, v0, a, b, c, or f. Used to
-        identify if the parameter is an initial condition, an ODE
-        coefficient, or another kind of parameter.
-        index(int of int touple): optional for ep, x0, v0, log_fx and log_fv
-        ptypes (does nothing). It is necessary for a, b, c, and f ptypes. If
-        not set for those ptypes it will cause errors when building TSAOpy
-        models.
-            - for a and b parameters its the order of the term,
-                eg: b_2*x^2 => index = 2
-            - for c parameters it is a touple with the order of x as first
-            element and the order of x'=v as second element,
-                eg: c_21*x^2*x' => index = (2, 1)
-            - for f parameters it is 1 for F_0, 2 for omega, and 3 for phi.
-
-        Returns:
-        tsaopy parameter object instance.
+        Indexes should be assigned according to
+                - for a and b parameters its the order of the term,
+                    eg: b_2*x^2 => index = 2
+                - for c parameters it is a touple with the order of x as first
+                element and the order of x'=v as second element,
+                    eg: c_21*x^2*x' => index = (2, 1)
+                - for f parameters it is 1 for F_0, 2 for omega, and 3 for phi.
         """
         if not test_var_is_number(value):
             sys.exit("tsaopy params error: input value is not a number.")
