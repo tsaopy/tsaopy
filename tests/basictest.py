@@ -77,7 +77,7 @@ parameters = [x0,v0,a1,b1]
 model2 = tsaopy.models.PVModel(parameters,data_t,data_x,data_v,
                             data_x_sigma,data_v_sigma)
 
-sampler,_,_,_ = model2.setup_sampler(200, 300, 300)
+sampler = model2.setup_sampler(200, 300, 300)
 samples, flat_samples = sampler.get_chain(), sampler.get_chain(flat=True)
 
 label_list = model2.params_labels
