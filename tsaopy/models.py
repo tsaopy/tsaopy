@@ -257,7 +257,8 @@ class PModel:
 
         Set the cpu_cores attribute in the `tsaopy` model instance. Default is
         the total number of cores in the system, obtained with
-        `multiprocessing.cpu_count`, minus two.
+        `multiprocessing.cpu_count`, minus two, or one if `cpu_count` returns 2
+        or less.
 
         This attribute is supplied to the emcee Sampler object when you call
         the setup_sampler method of the tsaopy model object.
