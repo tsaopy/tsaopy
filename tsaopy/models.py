@@ -75,7 +75,10 @@ class PModel:
                 self.log_fx_loc = self.params_to_fit.index(p)
 
         self.mcmc_moves = None
-        self.cpu_cores = cpu_count() - 2
+        if cpu_count() > 2:
+          self.cpu_cores = cpu_count() - 2
+        else:
+          self.cpu_cores = 1
 
     # simulations
 
@@ -326,7 +329,7 @@ class PModel:
 
     # plots
 
-    def plot_measurements(self, figsize=(7, 5), dpi=150):
+    def plot_measurements(self, figsize=(7, 5), dpi=100):
         """
         Make a scatterplot showing the (t,x(t)) series provided to the model.
 
@@ -335,7 +338,7 @@ class PModel:
         figsize : tuple, optional
             proportions of the image passed to pyplot. The default is (7, 5).
         dpi : TYPE, optional
-            dots per inch passed to pyplot. The default is 150.
+            dots per inch passed to pyplot. The default is 100.
 
         Returns
         -------
@@ -349,7 +352,7 @@ class PModel:
         plt.legend()
         plt.show()
 
-    def plot_simulation(self, coords, figsize=(7, 5), dpi=150):
+    def plot_simulation(self, coords, figsize=(7, 5), dpi=100):
         """
         Make a scatterplot showing the (t,x(t)) series provided to the model,
         and a lineplot of a simulation using values provided in the coords arg.
@@ -363,7 +366,7 @@ class PModel:
         figsize : tuple, optional
             proportions of the image passed to pyplot. The default is (7, 5).
         dpi : TYPE, optional
-            dots per inch passed to pyplot. The default is 150.
+            dots per inch passed to pyplot. The default is 100.
 
         Returns
         -------
@@ -538,7 +541,7 @@ class PVModel(PModel):
 
     # plots
 
-    def plot_measurements(self, figsize=(7, 5), dpi=150):
+    def plot_measurements(self, figsize=(7, 5), dpi=100):
         """
         Make a scatterplot showing both the (t,x(t)) and (t,v(t)) series
         provided to the model.
@@ -548,7 +551,7 @@ class PVModel(PModel):
         figsize : tuple, optional
             proportions of the image passed to pyplot. The default is (7, 5).
         dpi : TYPE, optional
-            dots per inch passed to pyplot. The default is 150.
+            dots per inch passed to pyplot. The default is 100.
 
         Returns
         -------
@@ -566,7 +569,7 @@ class PVModel(PModel):
         plt.legend()
         plt.show()
 
-    def plot_measurements_x(self, figsize=(7, 5), dpi=150):
+    def plot_measurements_x(self, figsize=(7, 5), dpi=100):
         """
         Make a scatterplot showing the (t,x(t)) series provided to the model.
 
@@ -575,7 +578,7 @@ class PVModel(PModel):
         figsize : tuple, optional
             proportions of the image passed to pyplot. The default is (7, 5).
         dpi : TYPE, optional
-            dots per inch passed to pyplot. The default is 150.
+            dots per inch passed to pyplot. The default is 100.
 
         Returns
         -------
@@ -589,7 +592,7 @@ class PVModel(PModel):
         plt.legend()
         plt.show()
 
-    def plot_measurements_v(self, figsize=(7, 5), dpi=150):
+    def plot_measurements_v(self, figsize=(7, 5), dpi=100):
         """
         Make a scatterplot showing the (t,v(t)) series provided to the model.
 
@@ -598,7 +601,7 @@ class PVModel(PModel):
         figsize : tuple, optional
             proportions of the image passed to pyplot. The default is (7, 5).
         dpi : TYPE, optional
-            dots per inch passed to pyplot. The default is 150.
+            dots per inch passed to pyplot. The default is 100.
 
         Returns
         -------
@@ -612,7 +615,7 @@ class PVModel(PModel):
         plt.legend()
         plt.show()
 
-    def plot_simulation(self, coords, figsize=(7, 5), dpi=150):
+    def plot_simulation(self, coords, figsize=(7, 5), dpi=100):
         """
         Make a scatterplot showing both the (t,x(t)) and (t,v(t)) series
         provided to the model, and lineplots of a simulation using values
@@ -627,7 +630,7 @@ class PVModel(PModel):
         figsize : tuple, optional
             proportions of the image passed to pyplot. The default is (7, 5).
         dpi : TYPE, optional
-            dots per inch passed to pyplot. The default is 150.
+            dots per inch passed to pyplot. The default is 100.
 
         Returns
         -------
@@ -657,7 +660,7 @@ class PVModel(PModel):
         plt.legend()
         plt.show()
 
-    def plot_simulation_x(self, coords, figsize=(7, 5), dpi=150):
+    def plot_simulation_x(self, coords, figsize=(7, 5), dpi=100):
         """
         Make a scatterplot showing the (t,x(t)) series provided to the model,
         and a lineplot of a simulation using values provided in the coords arg.
@@ -671,7 +674,7 @@ class PVModel(PModel):
         figsize : tuple, optional
             proportions of the image passed to pyplot. The default is (7, 5).
         dpi : TYPE, optional
-            dots per inch passed to pyplot. The default is 150.
+            dots per inch passed to pyplot. The default is 100.
 
         Returns
         -------
@@ -691,7 +694,7 @@ class PVModel(PModel):
         plt.legend()
         plt.show()
 
-    def plot_simulation_v(self, coords, figsize=(7, 5), dpi=150):
+    def plot_simulation_v(self, coords, figsize=(7, 5), dpi=100):
         """
         Make a scatterplot showing the (t,v(t)) series provided to the model,
         and a lineplot of a simulation using values provided in the coords arg.
@@ -705,7 +708,7 @@ class PVModel(PModel):
         figsize : tuple, optional
             proportions of the image passed to pyplot. The default is (7, 5).
         dpi : TYPE, optional
-            dots per inch passed to pyplot. The default is 150.
+            dots per inch passed to pyplot. The default is 100.
 
         Returns
         -------
