@@ -249,7 +249,7 @@ def autocplots(flat_samples, labels_list):
     aux_dom = range(0, clen, step_slice)
     aux_fl = flat_samples[::step_slice]
     autocfs = np.array([function_1d(aux_fl[:, _]) for _ in range(dim)])
-    fig, axes = plt.subplots(dim, figsize=(10, 7), dpi=200, sharex=True)
+    fig, axes = plt.subplots(dim, figsize=(10, 7), dpi=100, sharex=True)
     plt.suptitle("autocorrelation functions")
     for i in range(dim):
         ax = axes[i]
