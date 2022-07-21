@@ -1,5 +1,5 @@
 """Main submodule of the library."""
-from tsaopy._f2pyauxmod import simulation, simulationv
+import numpy as np
 
 
 #           Aux stuff, raises etc
@@ -38,12 +38,13 @@ class Model:
                                                      'guess does not return '
                                                      'a positive value for its'
                                                      ' prior.')
-            # general exception when we don't know what happened
-            finally:
-                raise ModelInitException('ode coefs dict has something wrong.')
+            # general exception
+            except Exception as exception:
+                raise ModelInitException('ode coefs dict has something wrong.'
+                                         ) from exception
 
         # a and b 1D vectors
-        
+        # do
 
         # f vector
         if 'f' not in ode_coefs:
@@ -51,27 +52,37 @@ class Model:
         elif 'f' in ode_coefs:
             self.using_f = True
 
-    def predict_sev(self, A, B, F, C, i):
-        """Compute the prediction for a single event."""
-        pass
+    def _ode_arrays(self, coords):
+        alen, blen, cn, cm = self.alen, self.blen, self.cn, self.cm
+        A, B, F, C = (np.zeros(alen), np.zeros(blen), np.zeros(3),
+                      np.zeros((cn, cm)))
+        return A, B, F, C
 
-    def predict(self, coords):
-        """Compute the prediction for all events."""
-        # 1D arrays coefs
-        a_start, a_stop = 0, self.alen
-        b_start, b_stop = a_stop, a_stop + self.blen
-        f_start, f_stop = b_stop, b_stop + self.blen
-        A, B, F = (coords[a_start:a_stop], coords[b_start:b_stop],
-                   coords[f_start:f_stop])
+    def log_likelihood(self, coords):
+        """Compute log likelihood for all events."""
+        A, B, F, C = self._ode_arrays(coords)
 
-        # matrix coefs
-        c_start, c_stop = f_stop, f_stop + self.clen
-        C = coords[c_start:c_stop]
-        C.reshape(self.c_n, self.c_m)
-
-        last_n = c_stop
+        last_n = 0
+        result = .0
         # iterate over all events
         for event in self.events:
-            x0, v0 = coords[last_n], coords[last_n + 1]
-            if event.use_ep:
-                ep = coords[last_n + 2]
+            x0v0 = coords[last_n:last_n + 2]
+            last_n += 2
+            if event.using_ep:
+                ep = coords[last_n]
+                last_n += 1
+            if event.using_logfx:
+                logfx = coords[last_n]
+                last_n += 1
+            if event.using_logfv:
+                logfv = coords[last_n]
+                last_n += 1
+            result += event.log_likelihood(self, A, B, F, C, x0v0,
+                                           ep, logfx, logfv)
+
+    def log_prior(self, coords):
+        """Compute log prior for all events."""
+        result = .0
+        # iterate over all events
+        for event in self.events:
+            event_prior = 0
