@@ -21,35 +21,35 @@ class Model:
         # run tests
         for i in ode_coefs:
             try:
-                if len(ode_coefs[i]) < 3:
-                    raise ModelInitException('ode coefs dict has less info '
-                                             'than expected. Remember to add '
-                                             'initial guess, prior, and index '
-                                             'for each coefficient.')
-                if len(ode_coefs[i]) > 3:
-                    raise ModelInitException('ode coefs dict has more info '
-                                             'than expected. Remember to only '
-                                             'add initial guess, prior, and '
-                                             'index for each coefficient.')
-                ilen = len(ode_coefs[i][2])
-                
+                ilist = ode_coefs[i]
+                # check that every parameter has 3 elements in its touple
+                for coef in ilist:
+                    if len(coef) < 3:
+                        raise ModelInitException('some ODE coef is missing '
+                                                 'parameters.')
+                    if len(coef) > 3:
+                        raise ModelInitException('some ODE coef has too many '
+                                                 'parameters.')
+                    # check that for every parameter p(x) > 0
+                    else:
+                        _, x, p = coef
+                        if not p(x) > .0:
+                            raise ModelInitException('some ODE coef initial '
+                                                     'guess does not return '
+                                                     'a positive value for its'
+                                                     ' prior.')
             # general exception when we don't know what happened
             finally:
                 raise ModelInitException('ode coefs dict has something wrong.')
 
         # a and b 1D vectors
-        self.aindex = ode_coefs['a'][-1]
-        self.alen, self.ashape = len(self.aindex), max(self.aindex)
-
-        self.bindex = ode_coefs['b'][-1]
-        self.blen, self.bshape = len(self.bindex), max(self.bindex)
+        
 
         # f vector
         if 'f' not in ode_coefs:
             self.using_f = False
         elif 'f' in ode_coefs:
             self.using_f = True
-            assert len
 
     def predict_sev(self, A, B, F, C, i):
         """Compute the prediction for a single event."""
