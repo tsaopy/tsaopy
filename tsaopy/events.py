@@ -1,5 +1,6 @@
 """tsaopy Events submodule."""
 import numpy as np
+from tsaopy._f2pyauxmod import simulation, simulationv
 
 
 #           Aux stuff, raises etc
@@ -11,6 +12,15 @@ class EventInitException(Exception):
         msg = rtext + (' Exception ocurred while trying to instance a tsaopy '
                        'Event object.')
         super().__init__(msg)
+
+
+def _ll(pred, data, sigma):
+    return -.5 * np.sum(((pred - data) / sigma) ** 2)
+
+
+def _ll_logf(pred, data, sigma, logf):
+    s2 = sigma ** 2 + pred ** 2 * np.exp(2 * logf)
+    return -.5 * np.sum((pred - data) ** 2 / s2 + np.log(s2))
 
 
 #           tsaopy scripts
@@ -29,28 +39,10 @@ class Event:
     initial conditions, equilibrium points, etc.
     """
 
-    def __init__(self, x_data, t_data, params):
+    def __init__(self, params, t_data, x_data, x_sigma,
+                 v_data=None, v_sigma=None):
         """Instance parameters."""
         #           TO DO HERE: improve error handling ...
-        # check x and t have the same lengths
-        try:
-            if not len(t_data) == len(x_data):
-                raise ValueError('x_data and t_data have different lengths.')
-        except Exception as exception:
-            raise EventInitException("couldn't assert x_data and t_data "
-                                     "have the same lengths.") from exception
-
-        # check x and t have finite float values
-        try:
-            if not np.isfinite(x_data).all():
-                raise ValueError('x_data has non finite values.')
-            if not np.isfinite(t_data).all():
-                raise ValueError('t_data has non finite values.')
-        except Exception as exception:
-            raise EventInitException("couldn't assert all values in x_array "
-                                     "and t_array were finite numbers.") \
-                                                            from exception
-
         # make sure that x0 and v0 are in params
         try:
             if 'x0' not in params:
@@ -87,28 +79,144 @@ class Event:
                                          "returns a positive prior value for "
                                          "some parameter.") from exception
 
+        # do check for v data usage
+        if v_data is not None:
+            if v_sigma is None:
+                raise EventInitException("v_data array given but no v_sigma.")
+            self.using_v_data = True
+        else:
+            self.using_v_data = False
+
+        # check x and t have the same lengths, x and v same shape
+        try:
+            if not len(t_data) == len(x_data):
+                raise ValueError('x_data and t_data have different lengths.')
+            if self.using_v_data:
+                if not x_data.shape == v_data.shape:
+                    raise ValueError('x_data and v_data have different shapes.'
+                                     )
+        except Exception as exception:
+            raise EventInitException("couldn't assert all input arrays have "
+                                     "compatible shapes.") from exception
+
+        # check x and t have finite float values
+        try:
+            if not np.isfinite(x_data).all():
+                raise ValueError('x_data has non finite values.')
+            if not np.isfinite(t_data).all():
+                raise ValueError('t_data has non finite values.')
+            if self.using_v_data:
+                if not np.isfinite(v_data).all():
+                    raise ValueError('v_data has non finite values.')
+        except Exception as exception:
+            raise EventInitException("couldn't assert all values in input "
+                                     "arrays are finite numbers.") \
+                                                            from exception
+
+        #       Define core attributes ~~~~
+        self.tsplit = 2
+        self.datalen = len(t_data)
+        self.dt = (t_data[-1] - t_data[0]) / (self.datalen - 1)
+
+        # attribute params
+        self.params = params
+
+        # attibute priors
+        self.priors = [params['x0'][-1],
+                       params['v0'][-1]]
+
         # do checks for ep
         if 'ep' in params:
             self.using_ep = True
+            self.priors.append(params['ep'][-1])
         else:
             self.using_ep = False
 
         # do checks for fx
         if 'log_fx' in params:
             self.using_logfx = True
+            self.priors.append(params['log_fx'][-1])
         else:
             self.using_logfx = False
 
         # do checks for fv
         if 'log_fv' in params:
+            # necessary check
+            if not self.using_v_data:
+                raise EventInitException("log_fv is in params but there is no "
+                                         "v data.")
             self.using_logfv = True
+            self.priors.append(params['log_fv'][-1])
         else:
             self.using_logfv = False
 
-        #       Define core attributes ~~~~
-        self.datalen = len(x_data)
-        self.dt = (t_data[-1] - t_data[0]) / (self.datalen - 1)
+        # save observations & sigma data
+        self.t_data = t_data
+        self.x_data = x_data
+        self.x_sigma = x_sigma
+        if self.using_v_data:
+            self.v_data = v_data
+            self.v_sigma = v_sigma
 
-        def _compute_prediction(A, B, F, C, x0v0,
-                                ep=0, log_fx=None, log_fv=None):
-            return
+    def predict(self, A, B, F, C, x0v0, ep):
+        """Compute tsaopy prediction using coefs and iniconds."""
+        use_ep, use_v = self.using_ep, self.using_v_data
+        tsplit = self.tsplit
+        dt, datalen = self.dt / tsplit, self.datalen * tsplit
+
+        na, nb = len(A), len(B)
+        cn, cm = C.shape
+        if not use_ep and not use_v:
+            return simulation(x0v0, A, B, C, F,
+                              dt, datalen, na, nb, cn, cm)[::tsplit]
+        if use_ep and not use_v:
+            return simulation(x0v0, A, B, C, F,
+                              dt, datalen, na, nb, cn,
+                              cm)[::tsplit] + ep
+        if not use_ep and use_v:
+            return simulationv(x0v0, A, B, C, F,
+                               dt, datalen, na, nb, cn, cm)[::tsplit]
+        if use_ep and use_v:
+            arr = np.zeros((self.datalen, 2))
+            arr[:, 0] += ep
+            return simulationv(x0v0, A, B, C, F,
+                               dt, datalen, na, nb, cn, cm)[::tsplit] + arr
+
+    def log_prior(self, event_coords):
+        """Compute log prior for event parameters."""
+        lp = 1
+        for i, p in enumerate(self.priors):
+            lp = lp * p(event_coords[i])
+        return np.log(lp)
+
+    def log_likelihood(self, A, B, F, C, x0v0,
+                       ep, log_fx, log_fv):
+        """Compute log likelihood for event parameters and ODE coefs arrays."""
+        pred = self.predict(self, A, B, F, C, x0v0, ep)
+
+        if not np.isfinite(pred).all():
+            return -np.inf
+
+        use_v, use_fx, use_fv = (self.using_v_data, self.using_logfx,
+                                 self.using_logfv)
+
+        # not using v data cases
+        if not use_v and not use_fx:
+            return _ll(pred, self.x_data, self.x_sigma)
+        elif not use_v and use_fx:
+            return _ll_logf(pred, self.x_data, self.x_sigma, log_fx)
+
+        predx, predv = pred[:, 0], pred[:, 1]
+        # using v data cases
+        if use_v and not use_fx and not use_fv:
+            return (_ll(predx, self.x_data, self.x_sigma)
+                    + _ll(predv, self.v_data, self.v_sigma))
+        elif use_v and use_fx and not use_fv:
+            return (_ll_logf(predx, self.x_data, self.x_sigma, log_fx)
+                    + _ll(predv, self.v_data, self.v_sigma))
+        elif use_v and not use_fx and use_fv:
+            return (_ll(predx, self.x_data, self.x_sigma)
+                    + _ll_logf(predv, self.v_data, self.v_sigma, log_fv))
+        elif use_v and use_fx and use_fv:
+            return (_ll_logf(predx, self.x_data, self.x_sigma, log_fx)
+                    + _ll_logf(predv, self.v_data, self.v_sigma, log_fv))
