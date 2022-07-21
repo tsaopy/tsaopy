@@ -1,10 +1,12 @@
 """Main submodule of the library."""
 import numpy as np
+import emcee
+from Multiprocessing import Pool
 
 
 #           Aux stuff, raises etc
 class ModelInitException(Exception):
-    """Custom exception for Event instance init."""
+    """Custom exception for Model instance init."""
 
     def __init__(self, rtext):
         """Edit init."""
@@ -60,7 +62,7 @@ class Model:
         return A, B, F, C
 
     def log_likelihood(self, coords):
-        """Compute log likelihood for all events."""
+        """Compute log likelihood."""
         odecoefs_ndim = self.odecoefs_ndim
         ode_coefs, event_params = (coords[:odecoefs_ndim],
                                    coords[odecoefs_ndim:])
@@ -88,11 +90,12 @@ class Model:
                 last_n += 1
             else:
                 logfv = None
+
             result += event.log_likelihood(self, A, B, F, C, x0v0,
                                            ep, logfx, logfv)
 
     def log_prior(self, coords):
-        """Compute log prior for all events."""
+        """Compute log prior."""
         odecoefs_ndim = self.odecoefs_ndim
         odecoords = coords[:odecoefs_ndim]
         result = 1
@@ -112,3 +115,83 @@ class Model:
             result += event.log_prior(event_coords)
 
         return result
+
+    def log_probability(self, coords):
+        """Compute log probability."""
+        lp = self.log_prior(coords)
+        if not np.isfinite(lp):
+            return -np.inf
+        return lp + self.log_likelihood(coords)
+
+    def run_mcmc_chain(self, nwalkers, burn_iter, main_iter,
+                       init_x=None, moves=None, workers=1):
+        """
+        Instance an `emcee` Ensemble Sambler and run an MCMC chain with it.
+
+        Parameters
+        ----------
+        nwalkers : int
+            number of walkers.
+        burn_iter : int
+            the number of steps that the chain will do during the burn in
+            phase. The samples produced during burn in phase are discarded.
+        main_iter : int
+            the number of steps that the chain will do during the production
+            phase. The samples produced during production phase are saved in
+            the sampler and can be extracted for later analysis.
+        init_x : array, optional
+            1D array of length ndim with an initial guess for the parameters
+            values. When set as None uses all zeroes. The default is None.
+        moves : emcee moves object, optional
+            `emcee` moves object. The default is None.
+        workers : int, optional
+            Parallelize the computing by setting up a pool of workers of size
+            workers. The default is 1.
+        Returns
+        -------
+        sampler : emcee Ensemble Sampler object
+            The instanced `emcee` sampler for which the chain is run.
+        """
+        ndim = self.ndim
+
+        if init_x is None:
+            init_x = np.zeros(ndim)
+
+        p0 = [init_x + 1e-7 * np.random.randn(ndim)
+              for i in range(nwalkers)]
+
+        if workers == 1:
+            sampler = emcee.EnsembleSampler(nwalkers,
+                                            ndim,
+                                            self.log_probability,
+                                            moves=moves)
+            print("")
+            print("Running burn-in...")
+            p0, _, _ = sampler.run_mcmc(p0, burn_iter, progress=True)
+            sampler.reset()
+
+            print("")
+            print("Running production...")
+            pos, prob, state = sampler.run_mcmc(p0, main_iter, progress=True)
+
+            return sampler
+
+        elif workers > 1:
+            with Pool(processes=workers) as pool:
+                sampler = emcee.EnsembleSampler(nwalkers,
+                                                ndim,
+                                                self.log_probability,
+                                                moves=moves,
+                                                pool=pool)
+                print("")
+                print("Running burn-in...")
+                p0, _, _ = sampler.run_mcmc(p0, burn_iter, progress=True)
+                sampler.reset()
+
+                print("")
+                print("Running production...")
+                pos, prob, state = sampler.run_mcmc(p0, main_iter,
+                                                    progress=True)
+                pool.close()
+            # outside with-as
+            return sampler
