@@ -188,9 +188,7 @@ class Event:
         result = 1
         for i, p in enumerate(self.priors):
             prob = p(event_coords[i])
-            if not np.isfinite(prob):
-                return -np.inf
-            elif prob <= .0:
+            if prob <= .0:
                 return -np.inf
             result *= prob
         return np.log(result)
