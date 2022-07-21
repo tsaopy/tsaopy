@@ -166,6 +166,7 @@ class Event:
 
         na, nb = len(A), len(B)
         cn, cm = C.shape
+
         if not use_ep and not use_v:
             return simulation(x0v0, A, B, C, F,
                               dt, datalen, na, nb, cn, cm)[::tsplit]
@@ -191,7 +192,7 @@ class Event:
                 return -np.inf
             elif prob <= .0:
                 return -np.inf
-            result = result * prob
+            result *= prob
         return np.log(result)
 
     def log_likelihood(self, A, B, F, C, x0v0,
