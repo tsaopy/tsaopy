@@ -184,10 +184,15 @@ class Event:
 
     def log_prior(self, event_coords):
         """Compute log prior for event parameters."""
-        lp = 1
+        result = 1
         for i, p in enumerate(self.priors):
-            lp = lp * p(event_coords[i])
-        return np.log(lp)
+            prob = p(event_coords[i])
+            if not np.isfinite(prob):
+                return -np.inf
+            elif prob <= .0:
+                return -np.inf
+            result = result * prob
+        return np.log(result)
 
     def log_likelihood(self, A, B, F, C, x0v0,
                        ep, log_fx, log_fv):
