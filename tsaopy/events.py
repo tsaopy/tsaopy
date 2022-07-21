@@ -1,4 +1,5 @@
 """tsaopy Events submodule."""
+import numpy as np
 
 
 #           Aux stuff, raises etc
@@ -12,6 +13,7 @@ class EventInitException(Exception):
         super().__init__(msg)
 
 
+#           tsaopy scripts
 class Event:
     """
     tsaopy Event class. Used to later instance tsaopy Model objects.
@@ -30,35 +32,60 @@ class Event:
     def __init__(self, x_data, t_data, params):
         """Instance parameters."""
         #           TO DO HERE: improve error handling ...
-        # make sure that x0 and v0 are here
-        if 'x0' not in params:
-            raise EventInitException('no x0 parameter when building Event.')
-        if 'v0' not in params:
-            raise EventInitException('no v0 parameter when building Event.')
+        # check x and t have the same lengths
+        try:
+            if not len(t_data) == len(x_data):
+                raise ValueError('x_data and t_data have different lengths.')
+        except Exception as exception:
+            raise EventInitException("couldn't assert x_data and t_data "
+                                     "have the same lengths.") from exception
 
-        # make sure that all params have 2 values (guess and prior)
+        # check x and t have finite float values
+        try:
+            if not np.isfinite(x_data).all():
+                raise ValueError('x_data has non finite values.')
+            if not np.isfinite(t_data).all():
+                raise ValueError('t_data has non finite values.')
+        except Exception as exception:
+            raise EventInitException("couldn't assert all values in x_array "
+                                     "and t_array were finite numbers.") \
+                                                            from exception
+
+        # make sure that x0 and v0 are in params
+        try:
+            if 'x0' not in params:
+                raise EventInitException('no x0 param when building Event.')
+            if 'v0' not in params:
+                raise EventInitException('no v0 param when building Event.')
+        except Exception as exception:
+            raise EventInitException("couldn't assert x0 and v0 keys were incl"
+                                     "uded in params dict.") from exception
+
+        # make sure that all params have 2 values
         for param in params:
             try:
                 if len(params[param]) < 2:
                     raise EventInitException('missing value in a param.')
                 elif len(params[param]) > 2:
                     raise EventInitException('too many values in a param.')
-            finally:
-                raise EventInitException("can't check if all given parameters "
-                                         "have both a guess and a prior.")
+            except Exception as exception:
+                raise EventInitException("couldn't assert all params have a "
+                                         "guess and a prior.") from exception
 
-        # here we check that all guesses return a positive value for the prior
+        # check that all guesses return a positive value for the prior
         for param in params:
             try:
                 x, p = params[param]
+                if not np.isfinite(p(x)):
+                    raise ValueError("initial guess for a param returned nan "
+                                     "or inf for its prior.")
                 if not p(x) > .0:
-                    raise EventInitException("initial guess for a param didn't"
-                                             " return positive value for its"
-                                             " prior.")
-            finally:
+                    raise ValueError("initial guess for a param didn't return "
+                                     "a positive value for its prior.")
+            except Exception as exception:
                 raise EventInitException("couldn't check that initial guess "
-                                         "returns a positive value for some "
-                                         "parameter.")
+                                         "returns a positive prior value for "
+                                         "some parameter.") from exception
 
         # do checks for ep
         if 'ep' in params:
@@ -77,3 +104,11 @@ class Event:
             self.using_logfv = True
         else:
             self.using_logfv = False
+
+        #       Define core attributes ~~~~
+        self.datalen = len(x_data)
+        self.dt = (t_data[-1] - t_data[0]) / (self.datalen - 1)
+
+        def _compute_prediction(A, B, F, C, x0v0,
+                                ep=0, log_fx=None, log_fv=None):
+            return
