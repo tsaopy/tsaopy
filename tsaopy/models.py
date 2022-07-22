@@ -2,6 +2,7 @@
 import numpy as np
 import emcee
 from Multiprocessing import Pool
+import quickemcee as qemc
 
 
 #           Aux stuff, raises etc
@@ -61,7 +62,7 @@ class Model:
                       np.zeros((cn, cm)))
         return A, B, F, C
 
-    def log_likelihood(self, coords):
+    def _log_likelihood(self, coords):
         """Compute log likelihood."""
         odecoefs_ndim = self.odecoefs_ndim
         ode_coefs, event_params = (coords[:odecoefs_ndim],
@@ -91,15 +92,15 @@ class Model:
             else:
                 logfv = None
 
-            result += event.log_likelihood(self, A, B, F, C, x0v0,
-                                           ep, logfx, logfv)
+            result += event._log_likelihood(self, A, B, F, C, x0v0,
+                                            ep, logfx, logfv)
 
-    def log_prior(self, coords):
+    def _log_prior(self, coords):
         """Compute log prior."""
         odecoefs_ndim = self.odecoefs_ndim
         odecoords = coords[:odecoefs_ndim]
         result = 1
-        for i, p in enumerate(self.priors):
+        for i, p in enumerate(self.odepriors):
             prob = p(odecoords[i])
             if prob <= .0:
                 return -np.inf
@@ -112,16 +113,16 @@ class Model:
             event_ndim = event.ndim
             event_coords = coords[last_n:last_n + event_ndim]
             last_n += event_ndim
-            result += event.log_prior(event_coords)
+            result += event._log_prior(event_coords)
 
         return result
 
-    def log_probability(self, coords):
+    def _log_probability(self, coords):
         """Compute log probability."""
-        lp = self.log_prior(coords)
+        lp = self._log_prior(coords)
         if not np.isfinite(lp):
             return -np.inf
-        return lp + self.log_likelihood(coords)
+        return lp + self._log_likelihood(coords)
 
     def run_mcmc_chain(self, nwalkers, burn_iter, main_iter,
                        init_x=None, moves=None, workers=1):
@@ -163,7 +164,7 @@ class Model:
         if workers == 1:
             sampler = emcee.EnsembleSampler(nwalkers,
                                             ndim,
-                                            self.log_probability,
+                                            self._log_probability,
                                             moves=moves)
             print("")
             print("Running burn-in...")
@@ -180,7 +181,7 @@ class Model:
             with Pool(processes=workers) as pool:
                 sampler = emcee.EnsembleSampler(nwalkers,
                                                 ndim,
-                                                self.log_probability,
+                                                self._log_probability,
                                                 moves=moves,
                                                 pool=pool)
                 print("")
