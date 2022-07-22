@@ -114,6 +114,7 @@ class Event:
                                                             from exception
 
         #       Define core attributes ~~~~
+        self.ndim = len(params)
         self.tsplit = 2
         self.datalen = len(t_data)
         self.dt = (t_data[-1] - t_data[0]) / (self.datalen - 1)
@@ -183,7 +184,7 @@ class Event:
             return simulationv(x0v0, A, B, C, F,
                                dt, datalen, na, nb, cn, cm)[::tsplit] + arr
 
-    def log_prior(self, event_coords):
+    def _log_prior(self, event_coords):
         """Compute log prior for event parameters."""
         result = 1
         for i, p in enumerate(self.priors):
@@ -193,10 +194,10 @@ class Event:
             result *= prob
         return np.log(result)
 
-    def log_likelihood(self, A, B, F, C, x0v0,
-                       ep, log_fx, log_fv):
+    def _log_likelihood(self, A, B, F, C, x0v0,
+                        ep, log_fx, log_fv):
         """Compute log likelihood for event parameters and ODE coefs arrays."""
-        pred = self.predict(self, A, B, F, C, x0v0, ep)
+        pred = self.predict(A, B, F, C, x0v0, ep)
 
         if not np.isfinite(pred).all():
             return -np.inf
