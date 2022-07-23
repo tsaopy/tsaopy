@@ -1,7 +1,6 @@
 import quickemcee as qmc
 import numpy as np
-import matplotlib.pyplot as plt
-from tsaopy import models, events
+import tsaopy
 from scipy.optimize import minimize
 
 # # # events
@@ -16,7 +15,7 @@ event1_params = {'x0': (10.0, qmc.utils.normal_prior(10.0, 5.0)),
                  'v0': (0.0, qmc.utils.normal_prior(0.0, 5.0))
                  }
 
-event1 = events.Event(event1_params, t1, x1, 1.5)
+event1 = tsaopy.events.Event(event1_params, t1, x1, 1.5)
 
 # set up event 2
 
@@ -27,14 +26,14 @@ event2_params = {'x0': (5.0, qmc.utils.normal_prior(5.0, 5.0)),
                  'v0': (0.0, qmc.utils.normal_prior(0.0, 5.0))
                  }
 
-event2 = events.Event(event2_params, t2, x2, 1.5)
+event2 = tsaopy.events.Event(event2_params, t2, x2, 1.5)
 
 # set up tsaopy model
 
 ode_coefs = {'a': [(1, .0, qmc.utils.normal_prior(0.0, 5.0))],
              'b': [(1, .0, qmc.utils.normal_prior(0.0, 5.0))]}
 
-tsaopymodel = models.Model(ode_coefs, [event1, event2])
+tsaopymodel = tsaopy.models.Model(ode_coefs, [event1, event2])
 
 # do mcmc
 
