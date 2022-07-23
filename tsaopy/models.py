@@ -1,7 +1,5 @@
 """Main submodule of the library."""
 import numpy as np
-import emcee
-from Multiprocessing import Pool
 import quickemcee as qemc
 
 
@@ -47,19 +45,81 @@ class Model:
                 raise ModelInitException('ode coefs dict has something wrong.'
                                          ) from exception
 
+        self.odecoefs = []
         # a and b 1D vectors
-        # do
+        if 'a' in ode_coefs:
+            acoefs = ode_coefs['a']
+            acoefs.sort()
+            self.odecoefs += acoefs
+            self.aind = [c[0] for c in acoefs]
+            self.adim = len(self.aind)
+            self.alen = max(self.aind)
+        else:
+            self.aind = []
+            self.adim = 0
+            self.alen = 0
+
+        if 'b' in ode_coefs:
+            bcoefs = ode_coefs['b']
+            bcoefs.sort()
+            self.odecoefs += bcoefs
+            self.bind = [c[0] for c in bcoefs]
+            self.bdim = len(self.bind)
+            self.blen = max(self.bind)
+        else:
+            self.bind = []
+            self.bdim = 0
+            self.blen = 0
 
         # f vector
         if 'f' not in ode_coefs:
             self.using_f = False
         elif 'f' in ode_coefs:
+            assert len(ode_coefs['f']) == 3, ('Error building tsaopy model: f '
+                                              'key provided but len not 3.')
             self.using_f = True
+            self.odecoefs_ndim += 3
+
+        # C matrix
+        if 'c' in ode_coefs:
+            ccoefs = ode_coefs['c']
+            ccoefs.sort()
+            self.odecoefs += ccoefs
+            self.cind = [c[0] for c in ccoefs]
+            self.cdim = len(self.cind)
+            self.cn = max([i[0] for i in self.cind])
+            self.cm = max([i[1] for i in self.cind])
+        else:
+            self.cind = []
+            self.cdim = 0
+            self.cn, self.cm = 0, 0
+
+        self.odecoefs_ndim = len(self.odecoefs)
+        self.odepriors = [c[-1] for c in self.odecoefs]
 
     def _ode_arrays(self, ode_coefs):
         alen, blen, cn, cm = self.alen, self.blen, self.cn, self.cm
+        aind, bind, cind = self.aind, self.bind, self.cind
+        adim, bdim = self.adim, self.bdim
         A, B, F, C = (np.zeros(alen), np.zeros(blen), np.zeros(3),
                       np.zeros((cn, cm)))
+
+        for i, ind in enumerate(aind):
+            A[ind-1] = ode_coefs[i]
+        last_n = adim
+
+        for i, ind in enumerate(bind):
+            B[ind-1] = ode_coefs[i + last_n]
+        last_n += bdim
+
+        if self.using_f:
+            F = ode_coefs[last_n: last_n + 3]
+            last_n += 3
+
+        for i, ind in enumerate(cind):
+            n, m = ind
+            C[n - 1, m - 1] = ode_coefs[i + last_n]
+
         return A, B, F, C
 
     def _log_likelihood(self, coords):
@@ -124,75 +184,14 @@ class Model:
             return -np.inf
         return lp + self._log_likelihood(coords)
 
-    def run_mcmc_chain(self, nwalkers, burn_iter, main_iter,
-                       init_x=None, moves=None, workers=1):
+    def setup_mcmc_model(self):
         """
-        Instance an `emcee` Ensemble Sambler and run an MCMC chain with it.
+        Build `quickemcee` model object.
 
-        Parameters
-        ----------
-        nwalkers : int
-            number of walkers.
-        burn_iter : int
-            the number of steps that the chain will do during the burn in
-            phase. The samples produced during burn in phase are discarded.
-        main_iter : int
-            the number of steps that the chain will do during the production
-            phase. The samples produced during production phase are saved in
-            the sampler and can be extracted for later analysis.
-        init_x : array, optional
-            1D array of length ndim with an initial guess for the parameters
-            values. When set as None uses all zeroes. The default is None.
-        moves : emcee moves object, optional
-            `emcee` moves object. The default is None.
-        workers : int, optional
-            Parallelize the computing by setting up a pool of workers of size
-            workers. The default is 1.
         Returns
         -------
-        sampler : emcee Ensemble Sampler object
-            The instanced `emcee` sampler for which the chain is run.
+        quickemcee model object
+            `quickemcee` model instance that can be used to run MCMC chains.
+
         """
-        ndim = self.ndim
-
-        if init_x is None:
-            init_x = np.zeros(ndim)
-
-        p0 = [init_x + 1e-7 * np.random.randn(ndim)
-              for i in range(nwalkers)]
-
-        if workers == 1:
-            sampler = emcee.EnsembleSampler(nwalkers,
-                                            ndim,
-                                            self._log_probability,
-                                            moves=moves)
-            print("")
-            print("Running burn-in...")
-            p0, _, _ = sampler.run_mcmc(p0, burn_iter, progress=True)
-            sampler.reset()
-
-            print("")
-            print("Running production...")
-            pos, prob, state = sampler.run_mcmc(p0, main_iter, progress=True)
-
-            return sampler
-
-        elif workers > 1:
-            with Pool(processes=workers) as pool:
-                sampler = emcee.EnsembleSampler(nwalkers,
-                                                ndim,
-                                                self._log_probability,
-                                                moves=moves,
-                                                pool=pool)
-                print("")
-                print("Running burn-in...")
-                p0, _, _ = sampler.run_mcmc(p0, burn_iter, progress=True)
-                sampler.reset()
-
-                print("")
-                print("Running production...")
-                pos, prob, state = sampler.run_mcmc(p0, main_iter,
-                                                    progress=True)
-                pool.close()
-            # outside with-as
-            return sampler
+        return qemc.core.LPModel(self.ndim, self._log_probability)
