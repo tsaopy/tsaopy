@@ -49,8 +49,8 @@ class Event:
             for the equilibrium point, and log_fx and log_fv for the f term in
             the uncertainty (see docs for more info).
 
-            Each parameter in the dict should be defined with its key (x0, v0,
-            ep, log_fx, log_fv) and the value for each key should be the prior
+            Each parameter in the dict should be defined with its key ('x0,
+            'v0', 'ep', 'log_fx', 'log_fv') and the value should be the prior
             for that parameter.
         t_data : array
             array containing the time values. Values must be evenly spread.
@@ -83,8 +83,10 @@ class Event:
             x0_prior = qmc.utils.normal_prior(1.0, 10.0)
             v0_prior = qmc.utils.normal_prior(.0, 10.0)
 
-            params_dict = {'x0': x0_prior,
-                           'v0': v0_prior}
+            params_dict = {
+                           'x0': x0_prior,
+                           'v0': v0_prior
+                           }
 
             event1 = tsaopy.events.Event(params_dict, t, x, x_noise)
         """
