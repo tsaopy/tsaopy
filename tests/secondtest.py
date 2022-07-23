@@ -1,7 +1,6 @@
 import quickemcee as qmc
 import numpy as np
-import matplotlib.pyplot as plt
-from tsaopy import models, events
+import tsaopy
 from scipy.optimize import dual_annealing
 
 
@@ -28,8 +27,9 @@ def solve_ivp(f, x0, t0tf, dt):
         result.append([t, x, v])
     return np.array(result)
 
+
 # simulation
-a1, b1 = 0.3, 1.0
+a1, b1 = .3, 1.0
 deriv = lambda X: np.array([X[1], -a1*X[1]-b1*X[0]])
 
 # # # events
@@ -50,8 +50,8 @@ event1_params = {'x0': (1.0, qmc.utils.normal_prior(1.0, 5.0)),
                  'ep': (0.0, qmc.utils.normal_prior(0.0, 5.0))
                  }
 
-event1 = events.Event(params=event1_params, t_data=t1, x_data=x1, x_sigma=.15,
-                      v_data=v1, v_sigma=.1)
+event1 = tsaopy.events.Event(params=event1_params, t_data=t1, x_data=x1,
+                             x_sigma=.15, v_data=v1, v_sigma=.1)
 
 # set up event 2
 ivpsol = solve_ivp(deriv, (-1.0, .5), (.0, 20.0), 0.1)
@@ -66,15 +66,15 @@ event2_params = {'x0': (1.0, qmc.utils.normal_prior(1.0, 5.0)),
                  'v0': (0.0, qmc.utils.normal_prior(0.0, 5.0))
                  }
 
-event2 = events.Event(params=event2_params, t_data=t2, x_data=x2, x_sigma=.15,
-                      v_data=v2, v_sigma=.1)
+event2 = tsaopy.events.Event(params=event2_params, t_data=t2, x_data=x2,
+                             x_sigma=.15, v_data=v2, v_sigma=.1)
 
 # set up tsaopy model
 
 ode_coefs = {'a': [(1, .0, qmc.utils.normal_prior(0.0, 5.0))],
-              'b': [(1, .0, qmc.utils.normal_prior(0.0, 5.0))]}
+             'b': [(1, .0, qmc.utils.normal_prior(0.0, 5.0))]}
 
-tsaopymodel = models.Model(ode_coefs, [event1, event2])
+tsaopymodel = tsaopy.models.Model(ode_coefs, [event1, event2])
 
 # do mcmc
 
@@ -129,4 +129,3 @@ qmc.utils.resultplot(flat_samples, v2, t2, predf2v,
 
 qmc.utils.resultplot(flat_samples, v2, t2, predf2v,
                      plotsamples=50, plotmode=True)
-
