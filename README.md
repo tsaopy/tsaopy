@@ -8,7 +8,7 @@ We have a Zenodo DOI for referencing the repository
 
 ### main
 
-This will be the current working version which includes `tsaopy` and additional testing files such as the solutions of the notebooks in the github page.
+This will be the current working version which includes `tsaopy` and additional testing files.
 
 ### patch/update
 
