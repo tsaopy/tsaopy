@@ -1,6 +1,6 @@
 """Main submodule of the library."""
 import numpy as np
-import quickemcee as qemc
+import quickemcee as qmc
 
 
 #           Aux stuff, raises etc
@@ -8,7 +8,6 @@ class ModelInitException(Exception):
     """Custom exception for Model instance init."""
 
     def __init__(self, rtext):
-        """Edit init."""
         msg = rtext + (' Exception ocurred while trying to instance a tsaopy '
                        'Model object.')
         super().__init__(msg)
@@ -16,34 +15,81 @@ class ModelInitException(Exception):
 
 #           tsaopy scripts
 class Model:
-    """Main object of the library."""
+    """
+    tsaopy Model class.
+
+    This object condenses all necessary variables to set up the ODE according
+    to the parameters provided plus the MCMC configuration to do the fitting.
+
+    """
 
     def __init__(self, ode_coefs, events):
-        """Do."""
+        r"""
+        Parameters
+        ----------
+        ode_coefs : dict
+            dictionary containing the ode coefficients relevant in the model's
+            ODE.
+
+            Note: if the model considers driving force, all three coeffients
+            must be included.
+
+            Each key should be one of type of coefficients in the ODE ('a',
+            'b', 'f', or 'c') and the value for each key should be a list with
+            touples with the index and the prior for each coefficient.
+
+            Indices are given by
+
+            * the order of the term for 'a' and 'b' coefs. Eg: in \(b_2x^2\)
+            the index of \(b_2\) coef is 2.
+            * for 'f' coefs, \(F_0\) is 1, \(\omega\) is 2, and \(\phi\) is 3.
+            * for 'c' coefs use a touple with two indices for the order of each
+            factor. Eg: in \(c_{21}x^2\dot{x}\) index is (2, 1).
+        events : list
+            list containing all tsaopy Event objects to which the model will be
+            fitted. Even if only one Event is used, pass it inside a list.
+
+
+        Examples
+        --------
+            event1 = tsaopy.events.Event(params1, t1, x1, x1_sigma)
+            event2 = tsaopy.events.Event(params2, t2, x2, x2_sigma,
+                                         v2, v2_sigma)
+            event3 = tsaopy.events.Event(params3, t3, x3, x3_sigma)
+
+            model1_ode_coefs = {'a': [(1, a1_prior), (2, a2_prior)],
+                                'b': [(1, b1_prior)],
+                                'f': [(1, F_prior), (2, w_prior),
+                                      (3, p_prior)],
+                                'c': [((2, 1), c21_prior)]}
+
+            model1 = tsaopy.models.Model(ode_coefs=model1_ode_coefs,
+                                         events=[event1, event2, event3])
+        """
         # run tests
         for i in ode_coefs:
             try:
                 ilist = ode_coefs[i]
-                # check that every parameter has 3 elements in its touple
+                # check that every parameter has 2 elements in its touple
                 for coef in ilist:
-                    if len(coef) < 3:
+                    if len(coef) < 2:
                         raise ModelInitException('some ODE coef is missing '
                                                  'parameters.')
-                    if len(coef) > 3:
+                    elif len(coef) > 2:
                         raise ModelInitException('some ODE coef has too many '
                                                  'parameters.')
                     # check that for every parameter p(x) > 0
                     else:
-                        _, x, p = coef
-                        if not p(x) > .0:
-                            raise ModelInitException('some ODE coef initial '
-                                                     'guess does not return '
-                                                     'a positive value for its'
-                                                     ' prior.')
+                        _, p, x = coef, np.random.normal(.0, 100.0)
+                        if p(x) < .0:
+                            raise ModelInitException("some ODE prior returned "
+                                                     "a negative value when "
+                                                     "called with random "
+                                                     "float.")
             # general exception
             except Exception as exception:
-                raise ModelInitException('ode coefs dict has something wrong.'
-                                         ) from exception
+                raise ModelInitException('unknown issue with the ode coefs '
+                                         'dictionary.') from exception
 
         self.odecoefs = []
         self.paramslabels = []
@@ -79,10 +125,12 @@ class Model:
             self.using_f = False
         elif 'f' in ode_coefs:
             assert len(ode_coefs['f']) == 3, ('Error building tsaopy model: f '
-                                              'key provided but len not 3.')
+                                              'key provided but len is not 3.')
             self.using_f = True
+            fcoefs = ode_coefs['f']
+            fcoefs.sort()
+            self.odecoefs += fcoefs
             self.paramslabels += [r'F_0', r'\omega', r'\phi']
-            self.odecoefs_ndim += 3
 
         # C matrix
         if 'c' in ode_coefs:
@@ -210,8 +258,47 @@ class Model:
             return -np.inf
         return lp + self._log_likelihood(coords)
 
+    def setup_mcmc_model(self):
+        """
+        Build `quickemcee` model object.
+
+        Returns
+        -------
+        quickemcee model object
+            `quickemcee` model instance that can be used to run MCMC chains.
+            See `quickemcee` docs for this class usage.
+
+        Examples
+        --------
+            tsaopymodel = tsaopy.models.Model(ode_coefs_dict, events_list)
+            qmcmodel = tsaopymodel.setup_mcmc_model()
+            sampler = qmcmodel.run_chain(100, 50, 100)
+        """
+        return qmc.core.LPModel(self.ndim, self._log_probability)
+
     def event_predict(self, i, coords):
-        """Do."""
+        """
+        Compute the prediction of the model for the i-eth event.
+
+        This method has the purpose of plotting the prediction of the model for
+        one of the events it was fitted to. Used for plotting with the results.
+
+        Parameters
+        ----------
+        i : int
+            An integer 1, 2, 3.. indicating the position of the event to
+            simulate in the events list provided to the Model instace. Don't
+            start at 0.'
+        coords : array
+            an array of length ndim(number of ode coefs plus number of params
+            for each model, total number of parameters to fit).
+
+        Returns
+        -------
+        array
+            array of the same shape as the x_data attribute in the i-eth event.
+
+        """
         odecoefs_ndim = self.odecoefs_ndim
         ode_coefs, event_params = (coords[:odecoefs_ndim],
                                    coords[odecoefs_ndim:])
@@ -239,16 +326,4 @@ class Model:
             else:
                 logfv = None        
             if j == i-1:
-                return event.predict(A, B, F, C, x0v0, ep)
-
-    def setup_mcmc_model(self):
-        """
-        Build `quickemcee` model object.
-
-        Returns
-        -------
-        quickemcee model object
-            `quickemcee` model instance that can be used to run MCMC chains.
-
-        """
-        return qemc.core.LPModel(self.ndim, self._log_probability)
+                return event._predict(A, B, F, C, x0v0, ep)

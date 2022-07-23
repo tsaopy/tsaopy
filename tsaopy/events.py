@@ -8,7 +8,6 @@ class EventInitException(Exception):
     """Custom exception for Event instance init."""
 
     def __init__(self, rtext):
-        """Edit init."""
         msg = rtext + (' Exception ocurred while trying to instance a tsaopy '
                        'Event object.')
         super().__init__(msg)
@@ -41,7 +40,56 @@ class Event:
 
     def __init__(self, params, t_data, x_data, x_sigma,
                  v_data=None, v_sigma=None):
-        """Instance parameters."""
+        """
+        Parameters
+        ----------
+        params : dict
+            dictionary containing the parameters relevant in the event. It's
+            necessary to always include x0 and v0. Optionally one can use ep
+            for the equilibrium point, and log_fx and log_fv for the f term in
+            the uncertainty (see docs for more info).
+
+            Each parameter in the dict should be defined with its key ('x0,
+            'v0', 'ep', 'log_fx', 'log_fv') and the value should be the prior
+            for that parameter.
+        t_data : array
+            array containing the time values. Values must be evenly spread.
+        x_data : array
+            array containing the position measurements. Must be of the same
+            length as t_data.
+        x_sigma : float or array
+            uncertainty of the measurements. Can be a float with a unique value
+            for all measurements, or an array of the same shape as x_data with
+            a unique value for each value of x_data.
+        v_data : TYPE, optional
+            array containing the velocity measurements. Must be of the same
+            length as t_data.
+        v_sigma : float or array, optional
+            uncertainty of the measurements. Can be a float with a unique value
+            for all measurements, or an array of the same shape as x_data with
+            a unique value for each value of x_data. Necessary if v_data is
+            being used.
+
+        Examples
+        --------
+            import numpy as np
+            import tsaopy
+            import quickemcee as qmc
+
+            t = np.linspace(0,10,101)
+            x = np.cos(t) + np.random.normal(.0, .3, 101) # data with noise
+            x_noise = .3
+
+            x0_prior = qmc.utils.normal_prior(1.0, 10.0)
+            v0_prior = qmc.utils.normal_prior(.0, 10.0)
+
+            params_dict = {
+                           'x0': x0_prior,
+                           'v0': v0_prior
+                           }
+
+            event1 = tsaopy.events.Event(params_dict, t, x, x_noise)
+        """
         #           TO DO HERE: improve error handling ...
         # make sure that x0 and v0 are in params
         try:
@@ -53,31 +101,20 @@ class Event:
             raise EventInitException("couldn't assert x0 and v0 keys were incl"
                                      "uded in params dict.") from exception
 
-        # make sure that all params have 2 values
+        # test if priors don't return a positive float when called
         for param in params:
             try:
-                if len(params[param]) < 2:
-                    raise EventInitException('missing value in a param.')
-                elif len(params[param]) > 2:
-                    raise EventInitException('too many values in a param.')
-            except Exception as exception:
-                raise EventInitException("couldn't assert all params have a "
-                                         "guess and a prior.") from exception
-
-        # check that all guesses return a positive value for the prior
-        for param in params:
-            try:
-                x, p = params[param]
+                x, p = np.random.normal(.0, 100.0), params[param]
                 if not np.isfinite(p(x)):
-                    raise ValueError("initial guess for a param returned nan "
-                                     "or inf for its prior.")
-                if not p(x) > .0:
-                    raise ValueError("initial guess for a param didn't return "
-                                     "a positive value for its prior.")
+                    raise ValueError("prior for a param return nan or inf when"
+                                     " called with a random float.")
+                if p(x) < .0:
+                    raise ValueError("prior for a param returned a negative va"
+                                     "lue when called with a random float.")
             except Exception as exception:
-                raise EventInitException("couldn't check that initial guess "
-                                         "returns a positive prior value for "
-                                         "some parameter.") from exception
+                raise EventInitException("couldn't check that a random float "
+                                         "returns a positive value for some "
+                                         "parameter prior.") from exception
 
         # do check for v data usage
         if v_data is not None:
@@ -123,20 +160,20 @@ class Event:
         self.params = params
 
         # attibute priors
-        self.priors = [params['x0'][-1],
-                       params['v0'][-1]]
+        self.priors = [params['x0'],
+                       params['v0']]
 
         # do checks for ep
         if 'ep' in params:
             self.using_ep = True
-            self.priors.append(params['ep'][-1])
+            self.priors.append(params['ep'])
         else:
             self.using_ep = False
 
         # do checks for fx
         if 'log_fx' in params:
             self.using_logfx = True
-            self.priors.append(params['log_fx'][-1])
+            self.priors.append(params['log_fx'])
         else:
             self.using_logfx = False
 
@@ -147,7 +184,7 @@ class Event:
                 raise EventInitException("log_fv is in params but there is no "
                                          "v data.")
             self.using_logfv = True
-            self.priors.append(params['log_fv'][-1])
+            self.priors.append(params['log_fv'])
         else:
             self.using_logfv = False
 
@@ -159,7 +196,7 @@ class Event:
             self.v_data = v_data
             self.v_sigma = v_sigma
 
-    def predict(self, A, B, F, C, x0v0, ep):
+    def _predict(self, A, B, F, C, x0v0, ep):
         """Compute tsaopy prediction using coefs and iniconds."""
         use_ep, use_v = self.using_ep, self.using_v_data
         tsplit = self.tsplit
@@ -197,7 +234,7 @@ class Event:
     def _log_likelihood(self, A, B, F, C, x0v0,
                         ep, log_fx, log_fv):
         """Compute log likelihood for event parameters and ODE coefs arrays."""
-        pred = self.predict(A, B, F, C, x0v0, ep)
+        pred = self._predict(A, B, F, C, x0v0, ep)
 
         if not np.isfinite(pred).all():
             return -np.inf
