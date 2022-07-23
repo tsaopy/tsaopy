@@ -46,12 +46,14 @@ class Model:
                                          ) from exception
 
         self.odecoefs = []
+        self.paramslabels = []
         # a and b 1D vectors
         if 'a' in ode_coefs:
             acoefs = ode_coefs['a']
             acoefs.sort()
             self.odecoefs += acoefs
             self.aind = [c[0] for c in acoefs]
+            self.paramslabels += ['a_' + str(i) for i in self.aind]
             self.adim = len(self.aind)
             self.alen = max(self.aind)
         else:
@@ -64,6 +66,7 @@ class Model:
             bcoefs.sort()
             self.odecoefs += bcoefs
             self.bind = [c[0] for c in bcoefs]
+            self.paramslabels += ['b_' + str(i) for i in self.bind]
             self.bdim = len(self.bind)
             self.blen = max(self.bind)
         else:
@@ -78,6 +81,7 @@ class Model:
             assert len(ode_coefs['f']) == 3, ('Error building tsaopy model: f '
                                               'key provided but len not 3.')
             self.using_f = True
+            self.paramslabels += [r'F_0', r'\omega', r'\phi']
             self.odecoefs_ndim += 3
 
         # C matrix
@@ -86,6 +90,8 @@ class Model:
             ccoefs.sort()
             self.odecoefs += ccoefs
             self.cind = [c[0] for c in ccoefs]
+            self.paramslabels += ['c_{' + str(i[0]) + str(i[1]) + '}'
+                                  for i in self.bind]
             self.cdim = len(self.cind)
             self.cn = max([i[0] for i in self.cind])
             self.cm = max([i[1] for i in self.cind])
@@ -96,6 +102,25 @@ class Model:
 
         self.odecoefs_ndim = len(self.odecoefs)
         self.odepriors = [c[-1] for c in self.odecoefs]
+
+        # finish param labels
+        for i, event in enumerate(events):
+            self.paramslabels += ['ev' + str(i) + '-' + s
+                                  for s in ['x_0', 'v_0']]
+            if event.using_ep:
+                self.paramslabels.append('ev' + str(i) + '-ep')
+            if event.using_logfx:
+                self.paramslabels.append('ev' + str(i) + '-log_fx')
+            if event.using_logfv:
+                self.paramslabels.append('ev' + str(i) + '-log_fv')
+
+        # store events and final data
+
+        self.events = events
+
+        self.ndim = self.odecoefs_ndim
+        for e in events:
+            self.ndim += e.ndim
 
     def _ode_arrays(self, ode_coefs):
         alen, blen, cn, cm = self.alen, self.blen, self.cn, self.cm
@@ -152,8 +177,10 @@ class Model:
             else:
                 logfv = None
 
-            result += event._log_likelihood(self, A, B, F, C, x0v0,
+            result += event._log_likelihood(A, B, F, C, x0v0,
                                             ep, logfx, logfv)
+
+        return result
 
     def _log_prior(self, coords):
         """Compute log prior."""
