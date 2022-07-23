@@ -14,6 +14,6 @@ This will be the current working version which includes `tsaopy` and additional 
 
 In progress versions with modifications of the backend. 
 
-### build
+### pypi build
 
 Version with the bare minimum from main plus additional installation scripts with the purpose of building the `pip install tsaopy` files.
