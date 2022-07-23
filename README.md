@@ -10,7 +10,7 @@ We just set up a Zenodo DOI for referencing the repository
 
 This will be the current working version which includes `tsaopy` and additional testing files such as the solutions of the notebooks in the github page.
 
-### main/core/backend - patch/update
+### patch/update
 
 In progress versions with modifications of the backend. 
 
