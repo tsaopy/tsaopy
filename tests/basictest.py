@@ -1,84 +1,77 @@
+import quickemcee as qmc
 import numpy as np
+import matplotlib.pyplot as plt
+from tsaopy import models, events
+from scipy.optimize import minimize
 
-# numerical solver
-def rk4(f,x,dx):
-    k1 = dx*f(x)
-    k2 = dx*f(x+0.5*k1)
-    k3 = dx*f(x+0.5*k2)
-    k4 = dx*f(x+k3)
-    return x + (k1+k4+2*k2+2*k3)/6
+# # # events
+# set up event 1
 
-def solve_ivp(f,x0,t0tf,dt):
-    P = x0
-    t,tf = t0tf
-    x,v = P
-    result = [[t,x,v]]
-    while t < tf:
-        P = rk4(f,P,dt)
-        t = t + dt
-        x,v = P
-        result.append([t,x,v])
-    return np.array(result)
+np.random.seed(3354)
 
-# aux noise function
-np.random.seed(205)
-u_noise,n_noise = 1e-1,1e-1
-noise = lambda : np.random.uniform(-u_noise,u_noise) +\
-    np.random.normal(0,n_noise)
+t1 = np.linspace(0, 10, 101)
+x1 = -.3 * t1 + 10 + np.random.normal(.0, .5, 101)
 
-# simulation
-a1,b1 = 0.3,1.0
-deriv = lambda X : np.array([  X[1],  -a1*X[1]-b1*X[0]  ])
+event1_params = {'x0': (10.0, qmc.utils.normal_prior(10.0, 5.0)),
+                 'v0': (0.0, qmc.utils.normal_prior(0.0, 5.0))
+                 }
 
-X0 = np.array([1.0,0.0])
+event1 = events.Event(event1_params, t1, x1, 1.5)
 
-result = solve_ivp(deriv,X0,(0,30),0.01)
+# set up event 2
 
-t,x,v = result[:,0],result[:,1],result[:,2]
+t2 = np.linspace(0, 10, 101)
+x2 = .5 * t2 + 5 + np.random.normal(.0, .5, 101)
 
-# fix time series length
-n_data = len(t)
-n_out = 1000
-step = n_data//n_out
+event2_params = {'x0': (5.0, qmc.utils.normal_prior(5.0, 5.0)),
+                 'v0': (0.0, qmc.utils.normal_prior(0.0, 5.0))
+                 }
 
-x, v, t = x[::step], v[::step], t[::step]
-while len(t) > n_out:
-    x, v, t = x[:-1], v[:-1], t[:-1]
+event2 = events.Event(event2_params, t2, x2, 1.5)
 
-# add noise
-for i in range(n_out):
-    x[i] = x[i] + noise()*0.3
-    v[i] = v[i] + noise()*0.2
+# set up tsaopy model
 
-import tsaopy
+ode_coefs = {'a': [(1, .0, qmc.utils.normal_prior(0.0, 5.0))],
+             'b': [(1, .0, qmc.utils.normal_prior(0.0, 5.0))]}
 
-# load data
-data_t,data_x,data_v = t,x,v
-data_x_sigma,data_v_sigma = 0.15,0.15
+tsaopymodel = models.Model(ode_coefs, [event1, event2])
 
-# priors
+# do mcmc
 
-x0_prior = tsaopy.tools.uniform_prior(0.7,1.3)
-v0_prior = tsaopy.tools.uniform_prior(-1.0,1.0)
-a1_prior = tsaopy.tools.uniform_prior(-5.0,5.0)
-b1_prior = tsaopy.tools.uniform_prior(0.0,5.0)
-    
-# parameters
+neg_ll = lambda coords : -tsaopymodel._log_likelihood(coords)
 
-x0 = tsaopy.parameters.Fitting(1.0,'x0',x0_prior)
-v0 = tsaopy.parameters.Fitting(0.0,'v0',v0_prior)
-a1 = tsaopy.parameters.Fitting(0.0, 'a', a1_prior,1)
-b1 = tsaopy.parameters.Fitting(0.5,'b',b1_prior,1)
+sol = minimize(neg_ll, np.zeros(6))
 
-parameters = [x0,v0,a1,b1]
+mcmcmodel = tsaopymodel.setup_mcmc_model()
 
-# model 2 (velocity)
+sampler = mcmcmodel.run_chain(100, 2000, 2000,
+                              init_x=sol.x, workers=1)
 
-model2 = tsaopy.models.PVModel(parameters,data_t,data_x,data_v,
-                            data_x_sigma,data_v_sigma)
+flat_samples, samples = sampler.get_chain(flat=True), sampler.get_chain()
 
-sampler = model2.setup_sampler(200, 300, 300)
-samples, flat_samples = sampler.get_chain(), sampler.get_chain(flat=True)
+labels = tsaopymodel.paramslabels
 
-label_list = model2.params_labels
-tsaopy.tools.cornerplots(flat_samples,label_list)
+# traceplots
+qmc.utils.traceplots(samples=samples, labels_list=labels)
+
+# cornerplots
+qmc.utils.cornerplots(flat_samples=flat_samples, labels_list=labels)
+
+# autocplots
+qmc.utils.autocplots(flat_samples=flat_samples, labels_list=labels)
+
+# results
+predf1 = lambda coords: tsaopymodel.event_predict(1, coords)
+predf2 = lambda coords: tsaopymodel.event_predict(2, coords)
+
+qmc.utils.resultplot(flat_samples, x1, t1, predf1,
+                     plotsamples=100)
+
+qmc.utils.resultplot(flat_samples, x1, t1, predf1,
+                     plotmode=True)
+
+qmc.utils.resultplot(flat_samples, x2, t2, predf2,
+                     plotsamples=100)
+
+qmc.utils.resultplot(flat_samples, x2, t2, predf2,
+                     plotmode=True)

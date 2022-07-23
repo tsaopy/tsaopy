@@ -1,729 +1,254 @@
-import sys
+"""Main submodule of the library."""
 import numpy as np
-from multiprocessing import cpu_count, Pool
-from matplotlib import pyplot as plt
-import emcee
-
-from tsaopy._f2pyauxmod import simulation, simulationv
-from tsaopy._bendtools import (fitparams_info, params_array_shape,
-                               test_params_are_ok)
-
-# model classes
+import quickemcee as qemc
 
 
-class PModel:
-    """
-    Build `tsaopy` model object.
+#           Aux stuff, raises etc
+class ModelInitException(Exception):
+    """Custom exception for Model instance init."""
 
-    This object condenses all necessary variables to set up the ODE according
-    to the parameters provided plus the MCMC configuration to do the fitting.
+    def __init__(self, rtext):
+        """Edit init."""
+        msg = rtext + (' Exception ocurred while trying to instance a tsaopy '
+                       'Model object.')
+        super().__init__(msg)
 
-    It includes some QOL methods suchs as changing the initial values of the
-    chain, the time step for the simulations, the number of CPU cores used
-    during simulations, and type of emcee moves used in the MCMC chain. It also
-    includes some plotting methods.
 
-    This class only uses x(t) information for the fitting.
-    """
+#           tsaopy scripts
+class Model:
+    """Main object of the library."""
 
-    def __init__(self, parameters, t_data, x_data, x_unc):
-        """
-        Parameters
-        ----------
-        parameters : list
-            the list of parameters that will be considered in the model. There
-            must be at least three parameters including the initial conditions
-            and one ODE coefficient. There can't be repeated parameters (two
-            parameters having the same ptype and index).
-        t_data : array
-            array with the time axis of the measurements..
-        x_data : array
-            array with the position measurements.
-        x_unc : float or int, or array
-            uncertainty of your measurements. It can be either a single number
-            representing the uncertainty of all measurements or an array of the
-            same length as x_data with a unique value for each measurement.
-        """
-        test_params_are_ok(parameters)
+    def __init__(self, ode_coefs, events):
+        """Do."""
+        # run tests
+        for i in ode_coefs:
+            try:
+                ilist = ode_coefs[i]
+                # check that every parameter has 3 elements in its touple
+                for coef in ilist:
+                    if len(coef) < 3:
+                        raise ModelInitException('some ODE coef is missing '
+                                                 'parameters.')
+                    if len(coef) > 3:
+                        raise ModelInitException('some ODE coef has too many '
+                                                 'parameters.')
+                    # check that for every parameter p(x) > 0
+                    else:
+                        _, x, p = coef
+                        if not p(x) > .0:
+                            raise ModelInitException('some ODE coef initial '
+                                                     'guess does not return '
+                                                     'a positive value for its'
+                                                     ' prior.')
+            # general exception
+            except Exception as exception:
+                raise ModelInitException('ode coefs dict has something wrong.'
+                                         ) from exception
 
-        self.parameters = parameters
-        self.t_data = t_data
-        self.x_data = x_data
-        self.x_unc = x_unc
-
-        self.datalen = len(t_data)
-        self.t0 = t_data[0]
-        self.tsplit = 4
-        self.dt = (t_data[-1] - self.t0) / (self.datalen - 1) / self.tsplit
-
-        self.params_to_fit = [p for p in parameters if not p.fixed]
-        self.ndim = len(self.params_to_fit)
-        self.mcmc_initvals = [p.value for p in self.params_to_fit]
-        self.ptf_info, self.params_labels = fitparams_info(self.params_to_fit)
-        self.priors_array = [p.prior for p in self.params_to_fit]
-
-        self.parray_shape = params_array_shape(self.parameters)
-        self.alens = (self.parray_shape[0][0],
-                      self.parray_shape[1][0],
-                      self.parray_shape[2][0],
-                      self.parray_shape[2][1])
-
-        self.fx_fix = False
-        for p in self.params_to_fit:
-            if p.ptype == 'log_fx':
-                self.fx_fix = True
-                self.log_fx_loc = self.params_to_fit.index(p)
-
-        self.mcmc_moves = None
-        if cpu_count() > 2:
-          self.cpu_cores = cpu_count() - 2
+        self.odecoefs = []
+        self.paramslabels = []
+        # a and b 1D vectors
+        if 'a' in ode_coefs:
+            acoefs = ode_coefs['a']
+            acoefs.sort()
+            self.odecoefs += acoefs
+            self.aind = [c[0] for c in acoefs]
+            self.paramslabels += ['a' + str(i) for i in self.aind]
+            self.adim = len(self.aind)
+            self.alen = max(self.aind)
         else:
-          self.cpu_cores = 1
+            self.aind = []
+            self.adim = 0
+            self.alen = 0
 
-    # simulations
+        if 'b' in ode_coefs:
+            bcoefs = ode_coefs['b']
+            bcoefs.sort()
+            self.odecoefs += bcoefs
+            self.bind = [c[0] for c in bcoefs]
+            self.paramslabels += ['b' + str(i) for i in self.bind]
+            self.bdim = len(self.bind)
+            self.blen = max(self.bind)
+        else:
+            self.bind = []
+            self.bdim = 0
+            self.blen = 0
 
-    def _setup_simulation_arrays(self, coords):
-        """Set up the parameters array used by a simulation."""
-        na, nb, cn, cm, = self.alens
-        scalars, A, B, C, F = (np.zeros(3), np.zeros(na), np.zeros(nb),
-                               np.zeros((cn, cm)), np.zeros(3))
+        # f vector
+        if 'f' not in ode_coefs:
+            self.using_f = False
+        elif 'f' in ode_coefs:
+            assert len(ode_coefs['f']) == 3, ('Error building tsaopy model: f '
+                                              'key provided but len not 3.')
+            self.using_f = True
+            self.paramslabels += [r'F_0', r'\omega', r'\phi']
+            self.odecoefs_ndim += 3
 
-        for p in self.parameters:
-            if p.ptype == "ep":
-                scalars[0] = p.value
-            if p.ptype == "x0":
-                scalars[1] = p.value
-            elif p.ptype == "v0":
-                scalars[2] = p.value
-            elif p.ptype == "a":
-                A[p.index - 1] = p.value
-            elif p.ptype == "b":
-                B[p.index - 1] = p.value
-            elif p.ptype == "c":
-                q = p.index
-                C[(q[0] - 1, q[1] - 1)] = p.value
-            elif p.ptype == "f":
-                F[p.index - 1] = p.value
+        # C matrix
+        if 'c' in ode_coefs:
+            ccoefs = ode_coefs['c']
+            ccoefs.sort()
+            self.odecoefs += ccoefs
+            self.cind = [c[0] for c in ccoefs]
+            self.paramslabels += [r'c_{' + str(i[0]) + str(i[1]) + '}'
+                                  for i in self.bind]
+            self.cdim = len(self.cind)
+            self.cn = max([i[0] for i in self.cind])
+            self.cm = max([i[1] for i in self.cind])
+        else:
+            self.cind = []
+            self.cdim = 0
+            self.cn, self.cm = 0, 0
 
-        results = [scalars, A, B, C, F]
-        ptf_index_info = self.ptf_info
+        self.odecoefs_ndim = len(self.odecoefs)
+        self.odepriors = [c[-1] for c in self.odecoefs]
 
-        for q in ptf_index_info:
-            if q is not None:
-                i = ptf_index_info.index(q)
-                results[q[0]][q[1]] = coords[i]
+        # finish param labels & ini guess
+        for i, event in enumerate(events):
+            self.paramslabels += [str(i+1) + ' - ' + s
+                                  for s in ['x0', 'v0']]
+            if event.using_ep:
+                self.paramslabels.append(str(i+1) + ' - ep')
+            if event.using_logfx:
+                self.paramslabels.append(str(i+1) + ' - log_fx')
+            if event.using_logfv:
+                self.paramslabels.append(str(i+1) + ' - log_fv')
 
-        return results
+        # store events and final data
+        self.events = events
 
-    def _predict(self, coords):
-        """Compute x(t) for a set of parameter values."""
-        dt, tsplit, datalen = self.dt, self.tsplit, self.datalen
-        na, nb, cn, cm, = self.alens
+        self.ndim = self.odecoefs_ndim
+        for e in events:
+            self.ndim += e.ndim
 
-        epx0v0_simu, A_simu, B_simu, C_simu, F_simu = (
-                                        self._setup_simulation_arrays(coords))
+    def _ode_arrays(self, ode_coefs):
+        alen, blen, cn, cm = self.alen, self.blen, self.cn, self.cm
+        aind, bind, cind = self.aind, self.bind, self.cind
+        adim, bdim = self.adim, self.bdim
+        A, B, F, C = (np.zeros(alen), np.zeros(blen), np.zeros(3),
+                      np.zeros((cn, cm)))
 
-        ep_simu, x0v0_simu = epx0v0_simu[0], epx0v0_simu[1:3]
+        for i, ind in enumerate(aind):
+            A[ind-1] = ode_coefs[i]
+        last_n = adim
 
-        return simulation(x0v0_simu, A_simu, B_simu, C_simu, F_simu,
-                          dt, tsplit * datalen, na, nb, cn, cm
-                          )[::tsplit] + ep_simu
+        for i, ind in enumerate(bind):
+            B[ind-1] = ode_coefs[i + last_n]
+        last_n += bdim
 
-    # mcmc stuff
+        if self.using_f:
+            F = ode_coefs[last_n: last_n + 3]
+            last_n += 3
 
-    def _log_prior(self, coefs):
-        """Compute the logarithmic prior of a set of parameter values."""
-        result = 1
-        for i in range(self.ndim):
-            prob = self.priors_array[i](coefs[i])
-            if prob <= 0:
-                return -np.inf
+        for i, ind in enumerate(cind):
+            n, m = ind
+            C[n - 1, m - 1] = ode_coefs[i + last_n]
+
+        return A, B, F, C
+
+    def _log_likelihood(self, coords):
+        """Compute log likelihood."""
+        odecoefs_ndim = self.odecoefs_ndim
+        ode_coefs, event_params = (coords[:odecoefs_ndim],
+                                   coords[odecoefs_ndim:])
+
+        A, B, F, C = self._ode_arrays(ode_coefs)
+
+        last_n = 0
+        result = .0
+        # iterate over all events
+        for event in self.events:
+            x0v0 = event_params[last_n:last_n + 2]
+            last_n += 2
+            if event.using_ep:
+                ep = event_params[last_n]
+                last_n += 1
             else:
-                result = result * prob
-        return np.log(result)
+                ep = None
+            if event.using_logfx:
+                logfx = event_params[last_n]
+                last_n += 1
+            else:
+                logfx = None
+            if event.using_logfv:
+                logfv = event_params[last_n]
+                last_n += 1
+            else:
+                logfv = None
 
-    def _log_likelihood(self, coefs):
-        """Compute the logarithmic likelihood of a set of parameter values."""
-        prediction = self._predict(coefs)
-        if not np.isfinite(prediction[-1]):
-            return -np.inf
+            result += event._log_likelihood(A, B, F, C, x0v0,
+                                            ep, logfx, logfv)
 
-        if self.fx_fix:
-            log_fx = coefs[self.log_fx_loc]
-            s2 = self.x_unc ** 2 + prediction ** 2 * np.exp(2 * log_fx)
-            ll = - 0.5 * np.sum((prediction - self.x_data) ** 2 / s2 +
-                                np.log(s2))
-        else:
-            ll = - 0.5 * np.sum(((prediction - self.x_data) / self.x_unc) ** 2)
-        return ll
+        return result
 
-    def _log_probability(self, coefs):
-        """Compute the logarithmic probabilty of a set of parameter values."""
-        lp = self._log_prior(coefs)
+    def _log_prior(self, coords):
+        """Compute log prior."""
+        odecoefs_ndim = self.odecoefs_ndim
+        odecoords = coords[:odecoefs_ndim]
+        result = 1
+        for i, p in enumerate(self.odepriors):
+            prob = p(odecoords[i])
+            if prob <= .0:
+                return -np.inf
+            result *= prob
+        result = np.log(result)
+
+        last_n = odecoefs_ndim
+        # iterate over all events
+        for event in self.events:
+            event_ndim = event.ndim
+            event_coords = coords[last_n:last_n + event_ndim]
+            last_n += event_ndim
+            result += event._log_prior(event_coords)
+
+        return result
+
+    def _log_probability(self, coords):
+        """Compute log probability."""
+        lp = self._log_prior(coords)
         if not np.isfinite(lp):
             return -np.inf
-        return lp + self._log_likelihood(coefs)
+        return lp + self._log_likelihood(coords)
 
-    def setup_sampler(self, n_walkers, burn_iter, main_iter):
+    def event_predict(self, i, coords):
+        """Do."""
+        odecoefs_ndim = self.odecoefs_ndim
+        ode_coefs, event_params = (coords[:odecoefs_ndim],
+                                   coords[odecoefs_ndim:])
+
+        A, B, F, C = self._ode_arrays(ode_coefs)
+
+        last_n = 0
+        # iterate over events
+        for j, event in enumerate(self.events):
+            x0v0 = event_params[last_n:last_n + 2]
+            last_n += 2
+            if event.using_ep:
+                ep = event_params[last_n]
+                last_n += 1
+            else:
+                ep = None
+            if event.using_logfx:
+                logfx = event_params[last_n]
+                last_n += 1
+            else:
+                logfx = None
+            if event.using_logfv:
+                logfv = event_params[last_n]
+                last_n += 1
+            else:
+                logfv = None        
+            if j == i-1:
+                return event.predict(A, B, F, C, x0v0, ep)
+
+    def setup_mcmc_model(self):
         """
-        Set up the `emcee` Sampler object and run the MCMC chain.
-
-        See `emcee` docs for more details.
-
-        Parameters such as the number of CPU cores and `emcee` moves used by
-        the sampler can be changed from the model attributes before running
-        this method. See the full docs of the model classes for more details.
-
-        Parameters
-        ----------
-        n_walkers : int
-            the number of walkers in the MCMC chain. See `emcee` docs for more
-            details.
-        burn_iter : int
-            the number of steps that your chain will do during the burn in
-            phase. The samples produced during burn in phase are discarded.
-        main_iter : int
-            the number of steps that your chain will do during the production
-            phase. The samples produced during production phase are saved in
-            the sampler and can be extracted for later analysis.
+        Build `quickemcee` model object.
 
         Returns
         -------
-        sampler : emcee Sampler instance
-            Returns the `emcee` ensemble sampler after running MCMC. See
-            `emcee` docs for more details.
-        """
-        p0 = [self.mcmc_initvals + 1e-7 * np.random.randn(self.ndim)
-              for i in range(n_walkers)]
-
-        with Pool(processes=self.cpu_cores) as pool:
-            sampler = emcee.EnsembleSampler(n_walkers, self.ndim,
-                                            self._log_probability,
-                                            moves=self.mcmc_moves, pool=pool)
-
-            print("")
-            print("Running burn-in...")
-            p0, _, _ = sampler.run_mcmc(p0, burn_iter, progress=True)
-            sampler.reset()
-
-            print("")
-            print("Running production...")
-            pos, prob, state = sampler.run_mcmc(p0, main_iter, progress=True)
-
-            return sampler
-
-    # tools
-
-    def update_initvals(self, newinivalues):
-        """
-        Update the starting values of the MCMC chain.
-
-        Update the initial values of the MCMC chain stored in the `tsaopy`
-        model instance `mcmc_initvals` attribute. Default is a list with the
-        value attribute for each parameter supplied to the model at
-        initialization.
-
-        This attribute is supplied to the `emcee` Sampler object when
-        `setup_sampler`.
-
-        Parameters
-        ----------
-        newinivalues : list or array
-            the new values for the initial  values of the MCMC chain. The
-            elements must be passed in the same order than the parameters
-            arg that was passed when initializing the model.
-        """
-        self.mcmc_initvals = newinivalues
-
-    def set_mcmc_moves(self, moves):
-        """
-        Change the `emcee` moves used in the MCMC run.
-
-        Set the mcmc_moves attribute in the `tsaopy` model instance. Default is
-        None. This attribute is supplied to the `emcee` Sampler object when the
-        setup_sampler method of the `tsaopy` model object is called. It's
-        possible to run MCMC chains for the same model with different moves by
-        updating the attribute with this method before each chain is run.
-
-        Parameters
-        ----------
-        moves : emcee moves instance
-            the `emcee` moves instance to be supplied to the sampler.
-
+        quickemcee model object
+            `quickemcee` model instance that can be used to run MCMC chains.
 
         """
-        self.mcmc_moves = moves
-
-    def set_cpu_cores(self, cores):
-        """
-        Set the number of CPU cores used by the emcee sampler.
-
-        Set the cpu_cores attribute in the `tsaopy` model instance. Default is
-        the total number of cores in the system, obtained with
-        `multiprocessing.cpu_count`, minus two, or one if `cpu_count` returns 2
-        or less.
-
-        This attribute is supplied to the emcee Sampler object when you call
-        the setup_sampler method of the tsaopy model object.
-
-        Parameters
-        ----------
-        cores : int
-            number of CPU cores to be used by the `emcee` sampler.
-        """
-        self.cpu_cores = cores
-
-    def update_tsplit(self, newtsplit):
-        """
-        Change the integration time in simulations.
-
-        Set the `tsplit` attribute in the `tsaopy` model instance, which is
-        used to set the time step for the numerical integrations.
-
-        The time step in the numerical integration is computed as
-
-        dt = (tf - t0)/(ndata-1)/tsplit
-
-        This means that the time step is obtained by dividing the difference
-        between consecutive t values over `tsplit`. Default value is 4.
-        Users that want to improve computing time may reduce this attribute
-        to 3, 2, or 1, at the expense of a possible precission loss in the
-        numerical simulations.
-
-        Parameters
-        ----------
-        newtsplit : int
-            the new value for tsplit that will also update the integration
-            time step.
-        """
-        self.tsplit = newtsplit
-        self.dt = (self.t_data[-1] - self.t0) / (
-                                                self.datalen - 1) / self.tsplit
-
-    def neg_ll(self, coords):
-        """
-        Compute the negative logarithmic likelihood.
-
-        Compute the negative logarithmic likelihood for a set of parameter
-        values for the defined model. This is best used when optimizing the
-        initial values with an external optimizer.
-
-        Parameters
-        ----------
-        coords : list or array
-            values for each parameter. The elements must be passed in the same
-            order than the parameters arg that was passed when initializing the
-            model.
-
-        Returns
-        -------
-        float
-            value of `neg_ll` for the given parameter values.
-
-        Examples
-        -------
-            f_to_minimize = my_model.neg_ll
-            external_function_minimizer(f_to_minimize, *args)
-        """
-        return -self._log_likelihood(coords)
-
-    # plots
-
-    def plot_measurements(self, figsize=(7, 5), dpi=100):
-        """
-        Make a scatterplot showing the (t,x(t)) series provided to the model.
-
-        Parameters
-        ----------
-        figsize : tuple, optional
-            proportions of the image passed to pyplot. The default is (7, 5).
-        dpi : TYPE, optional
-            dots per inch passed to pyplot. The default is 100.
-
-        Returns
-        -------
-        Displays created figures.
-        """
-        plt.figure(figsize=figsize, dpi=dpi)
-        plt.scatter(
-            self.t_data, self.x_data,
-            color="black", s=1.0, label="x measurements"
-            )
-        plt.legend()
-        plt.show()
-
-    def plot_simulation(self, coords, figsize=(7, 5), dpi=100):
-        """
-        Make a scatterplot showing the (t,x(t)) series provided to the model,
-        and a lineplot of a simulation using values provided in the coords arg.
-
-        Parameters
-        ----------
-        coords : list or array
-            values for each parameter. The elements must be passed in the same
-            order than the parameters arg that was passed when initializing the
-            model.
-        figsize : tuple, optional
-            proportions of the image passed to pyplot. The default is (7, 5).
-        dpi : TYPE, optional
-            dots per inch passed to pyplot. The default is 100.
-
-        Returns
-        -------
-        Displays created figures.
-        """
-        plt.figure(figsize=figsize, dpi=dpi)
-        plt.scatter(
-            self.t_data, self.x_data,
-            color="black", s=1.0, label="x measurements"
-            )
-        plt.plot(
-            self.t_data, self._predict(coords),
-            color="tab:red", label="x simulation"
-            )
-        plt.legend()
-        plt.show()
-
-    # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-
-
-class PVModel(PModel):
-    """
-    Build `tsaopy` model object.
-
-    This object condenses all necessary variables to set up the ODE according
-    to the parameters provided plus the MCMC configuration to do the fitting.
-
-    It includes some QOL methods suchs as changing the initial values of the
-    chain, the time step for the simulations, the number of CPU cores used
-    during simulations, and type of emcee moves used in the MCMC chain. It also
-    includes some plotting methods.
-
-    This class fits the parameters to both x(t) and v(t) data.
-    """
-
-    def __init__(self, parameters, t_data, x_data, v_data, x_unc, v_unc):
-        """
-        Parameters
-        ----------
-        parameters : list
-            the list of parameters that will be considered in the model. There
-            must be at least three parameters including the initial conditions
-            and one ODE coefficient. There can't be repeated parameters (two
-            parameters having the same ptype and index).
-        t_data : array
-            array with the time axis of the measurements.
-        x_data : array
-            array with the position measurements.
-        v_data : array
-            array with the velocity measurements. Note that there can't be a
-            scale factor between x(t) and v(t), v(t) must be exactly equal
-            to the time derivative of x(t).
-        x_unc : float or int, or array
-            uncertainty of the x(t) measurements. It can be either a single
-            number representing the uncertainty of all measurements or an array
-            of the same length as `x_data` with a unique value for each
-            measurement.
-        v_unc : float or int, or array
-            same as `x_unc` but for v(t) measurements.
-        """
-        super().__init__(parameters, t_data, x_data, x_unc)
-        self.v_data = v_data
-        self.v_unc = v_unc
-        self.fv_fix = False
-        for p in self.params_to_fit:
-            if p.ptype == 'log_fv':
-                self.fv_fix = True
-                self.log_fv_loc = self.params_to_fit.index(p)
-
-    def _predict(self, coords):
-        """Compute x(t) and v(t) for a set of parameter values."""
-        dt, tsplit, datalen = self.dt, self.tsplit, self.datalen
-        na, nb, cn, cm, = self.alens
-
-        epx0v0_simu, A_simu, B_simu, C_simu, F_simu = (
-                                        self._setup_simulation_arrays(coords))
-
-        ep_simu, x0v0_simu = epx0v0_simu[0], epx0v0_simu[1:]
-
-        simu_result = simulationv(x0v0_simu, A_simu, B_simu, C_simu, F_simu,
-                                  dt, tsplit * datalen, na, nb, cn,
-                                  cm)[::tsplit]
-
-        simu_result[:, 0] = simu_result[:, 0] + ep_simu
-        return simu_result
-
-    def _log_likelihood(self, coefs):
-        """Compute the logarithmic likelihood of a set of parameter values."""
-        prediction = self._predict(coefs)
-        predx, predv = prediction[:, 0], prediction[:, 1]
-        if not np.isfinite(predv[-1]):
-            return -np.inf
-
-        if self.fx_fix:
-            log_fx = coefs[self.log_fx_loc]
-            s2_x = self.x_unc ** 2 + predx ** 2 * np.exp(2 * log_fx)
-            ll = - 0.5 * np.sum((predx - self.x_data) ** 2 / s2_x +
-                                np.log(s2_x))
-        else:
-            ll = - 0.5 * np.sum(((predx - self.x_data) / self.x_unc) ** 2)
-
-        if self.fv_fix:
-            log_fv = coefs[self.log_fv_loc]
-            s2_v = self.v_unc ** 2 + predv ** 2 * np.exp(2 * log_fv)
-            ll = ll - 0.5 * np.sum((predv - self.v_data) ** 2 / s2_v +
-                                   np.log(s2_v))
-        else:
-            ll = ll - 0.5 * np.sum(((predv - self.v_data) / self.v_unc) ** 2)
-
-        return ll
-
-    def _log_probability(self, coefs):
-        """Compute the logarithmic probability of a set of parameter values."""
-        lp = self._log_prior(coefs)
-        if not np.isfinite(lp):
-            return -np.inf
-        return lp + self._log_likelihood(coefs)
-
-    def setup_sampler(self, n_walkers, burn_iter, main_iter):
-        """
-        Set up the `emcee` Sampler object and run the MCMC chain.
-
-        See `emcee` docs for more details.
-
-        Parameters such as the number of CPU cores and `emcee` moves used by
-        the sampler can be changed from the model attributes before running
-        this method. See the full docs of the model classes for more details.
-
-        Parameters
-        ----------
-        n_walkers : int
-            the number of walkers in the MCMC chain. See `emcee` docs for more
-            details.
-        burn_iter : int
-            the number of steps that your chain will do during the burn in
-            phase. The samples produced during burn in phase are discarded.
-        main_iter : int
-            the number of steps that your chain will do during the production
-            phase. The samples produced during production phase are saved in
-            the sampler and can be extracted for later analysis.
-
-        Returns
-        -------
-        sampler : emcee Sampler instance
-            Returns the `emcee` ensemble sampler after running MCMC. See
-            `emcee` docs for more details.
-        """
-        p0 = [self.mcmc_initvals + 1e-7 * np.random.randn(self.ndim)
-              for i in range(n_walkers)]
-
-        with Pool(processes=self.cpu_cores) as pool:
-            sampler = emcee.EnsembleSampler(n_walkers, self.ndim,
-                                            self._log_probability,
-                                            moves=self.mcmc_moves, pool=pool)
-
-            print("")
-            print("Running burn-in...")
-            p0, _, _ = sampler.run_mcmc(p0, burn_iter, progress=True)
-            sampler.reset()
-
-            print("")
-            print("Running production...")
-            pos, prob, state = sampler.run_mcmc(p0, main_iter, progress=True)
-
-            return sampler
-
-    # tools
-
-    def neg_ll(self, coords):
-        """See docs for PModel."""
-        return -self._log_likelihood(coords)
-
-    # plots
-
-    def plot_measurements(self, figsize=(7, 5), dpi=100):
-        """
-        Make a scatterplot showing both the (t,x(t)) and (t,v(t)) series
-        provided to the model.
-
-        Parameters
-        ----------
-        figsize : tuple, optional
-            proportions of the image passed to pyplot. The default is (7, 5).
-        dpi : TYPE, optional
-            dots per inch passed to pyplot. The default is 100.
-
-        Returns
-        -------
-        Displays created figures.
-        """
-        plt.figure(figsize=figsize, dpi=dpi)
-        plt.scatter(
-            self.t_data, self.x_data,
-            color="black", s=1.0, label="x measurements"
-        )
-        plt.scatter(
-            self.t_data, self.v_data,
-            color="tab:blue", s=1.0, label="v measurements"
-        )
-        plt.legend()
-        plt.show()
-
-    def plot_measurements_x(self, figsize=(7, 5), dpi=100):
-        """
-        Make a scatterplot showing the (t,x(t)) series provided to the model.
-
-        Parameters
-        ----------
-        figsize : tuple, optional
-            proportions of the image passed to pyplot. The default is (7, 5).
-        dpi : TYPE, optional
-            dots per inch passed to pyplot. The default is 100.
-
-        Returns
-        -------
-        Displays created figures.
-        """
-        plt.figure(figsize=figsize, dpi=dpi)
-        plt.scatter(
-            self.t_data, self.x_data,
-            color="black", s=1.0, label="x measurements"
-        )
-        plt.legend()
-        plt.show()
-
-    def plot_measurements_v(self, figsize=(7, 5), dpi=100):
-        """
-        Make a scatterplot showing the (t,v(t)) series provided to the model.
-
-        Parameters
-        ----------
-        figsize : tuple, optional
-            proportions of the image passed to pyplot. The default is (7, 5).
-        dpi : TYPE, optional
-            dots per inch passed to pyplot. The default is 100.
-
-        Returns
-        -------
-        Displays created figures.
-        """
-        plt.figure(figsize=figsize, dpi=dpi)
-        plt.scatter(
-            self.t_data, self.v_data,
-            color="tab:blue", s=1.0, label="v measurements"
-        )
-        plt.legend()
-        plt.show()
-
-    def plot_simulation(self, coords, figsize=(7, 5), dpi=100):
-        """
-        Make a scatterplot showing both the (t,x(t)) and (t,v(t)) series
-        provided to the model, and lineplots of a simulation using values
-        provided in the coords arg.
-
-        Parameters
-        ----------
-        coords : list or array
-            values for each parameter. The elements must be passed in the same
-            order than the parameters arg that was passed when initializing the
-            model.
-        figsize : tuple, optional
-            proportions of the image passed to pyplot. The default is (7, 5).
-        dpi : TYPE, optional
-            dots per inch passed to pyplot. The default is 100.
-
-        Returns
-        -------
-        Displays created figures.
-        """
-        plt.figure(figsize=figsize, dpi=dpi)
-        plt.scatter(
-            self.t_data, self.x_data,
-            color="black", s=1.0, label="x measurements"
-        )
-        plt.scatter(
-            self.t_data, self.v_data,
-            color="tab:blue", s=1.0, label="v measurements"
-        )
-        plt.plot(
-            self.t_data,
-            self._predict(coords)[:, 0],
-            color="tab:red",
-            label="x simulation",
-        )
-        plt.plot(
-            self.t_data,
-            self._predict(coords)[:, 1],
-            color="tab:purple",
-            label="v simulation",
-        )
-        plt.legend()
-        plt.show()
-
-    def plot_simulation_x(self, coords, figsize=(7, 5), dpi=100):
-        """
-        Make a scatterplot showing the (t,x(t)) series provided to the model,
-        and a lineplot of a simulation using values provided in the coords arg.
-
-        Parameters
-        ----------
-        coords : list or array
-            values for each parameter. The elements must be passed in the same
-            order than the parameters arg that was passed when initializing the
-            model.
-        figsize : tuple, optional
-            proportions of the image passed to pyplot. The default is (7, 5).
-        dpi : TYPE, optional
-            dots per inch passed to pyplot. The default is 100.
-
-        Returns
-        -------
-        Displays created figures.
-        """
-        plt.figure(figsize=figsize, dpi=dpi)
-        plt.scatter(
-            self.t_data, self.x_data,
-            color="black", s=1.0, label="x measurements"
-        )
-        plt.plot(
-            self.t_data,
-            self._predict(coords)[:, 0],
-            color="tab:red",
-            label="x simulation",
-        )
-        plt.legend()
-        plt.show()
-
-    def plot_simulation_v(self, coords, figsize=(7, 5), dpi=100):
-        """
-        Make a scatterplot showing the (t,v(t)) series provided to the model,
-        and a lineplot of a simulation using values provided in the coords arg.
-
-        Parameters
-        ----------
-        coords : list or array
-            values for each parameter. The elements must be passed in the same
-            order than the parameters arg that was passed when initializing the
-            model.
-        figsize : tuple, optional
-            proportions of the image passed to pyplot. The default is (7, 5).
-        dpi : TYPE, optional
-            dots per inch passed to pyplot. The default is 100.
-
-        Returns
-        -------
-        Displays created figures.
-        """
-        plt.figure(figsize=figsize, dpi=dpi)
-        plt.scatter(
-            self.t_data, self.v_data,
-            color="tab:blue", s=1.0, label="v measurements"
-        )
-        plt.plot(
-            self.t_data,
-            self._predict(coords)[:, 1],
-            color="tab:purple",
-            label="v simulation",
-        )
-        plt.legend()
-        plt.show()
+        return qemc.core.LPModel(self.ndim, self._log_probability)
