@@ -53,7 +53,7 @@ class Model:
             acoefs.sort()
             self.odecoefs += acoefs
             self.aind = [c[0] for c in acoefs]
-            self.paramslabels += ['a_' + str(i) for i in self.aind]
+            self.paramslabels += ['a' + str(i) for i in self.aind]
             self.adim = len(self.aind)
             self.alen = max(self.aind)
         else:
@@ -66,7 +66,7 @@ class Model:
             bcoefs.sort()
             self.odecoefs += bcoefs
             self.bind = [c[0] for c in bcoefs]
-            self.paramslabels += ['b_' + str(i) for i in self.bind]
+            self.paramslabels += ['b' + str(i) for i in self.bind]
             self.bdim = len(self.bind)
             self.blen = max(self.bind)
         else:
@@ -90,7 +90,7 @@ class Model:
             ccoefs.sort()
             self.odecoefs += ccoefs
             self.cind = [c[0] for c in ccoefs]
-            self.paramslabels += ['c_{' + str(i[0]) + str(i[1]) + '}'
+            self.paramslabels += [r'c_{' + str(i[0]) + str(i[1]) + '}'
                                   for i in self.bind]
             self.cdim = len(self.cind)
             self.cn = max([i[0] for i in self.cind])
@@ -103,19 +103,18 @@ class Model:
         self.odecoefs_ndim = len(self.odecoefs)
         self.odepriors = [c[-1] for c in self.odecoefs]
 
-        # finish param labels
+        # finish param labels & ini guess
         for i, event in enumerate(events):
-            self.paramslabels += ['ev' + str(i) + '-' + s
-                                  for s in ['x_0', 'v_0']]
+            self.paramslabels += [str(i+1) + ' - ' + s
+                                  for s in ['x0', 'v0']]
             if event.using_ep:
-                self.paramslabels.append('ev' + str(i) + '-ep')
+                self.paramslabels.append(str(i+1) + ' - ep')
             if event.using_logfx:
-                self.paramslabels.append('ev' + str(i) + '-log_fx')
+                self.paramslabels.append(str(i+1) + ' - log_fx')
             if event.using_logfv:
-                self.paramslabels.append('ev' + str(i) + '-log_fv')
+                self.paramslabels.append(str(i+1) + ' - log_fv')
 
         # store events and final data
-
         self.events = events
 
         self.ndim = self.odecoefs_ndim
@@ -210,6 +209,37 @@ class Model:
         if not np.isfinite(lp):
             return -np.inf
         return lp + self._log_likelihood(coords)
+
+    def event_predict(self, i, coords):
+        """Do."""
+        odecoefs_ndim = self.odecoefs_ndim
+        ode_coefs, event_params = (coords[:odecoefs_ndim],
+                                   coords[odecoefs_ndim:])
+
+        A, B, F, C = self._ode_arrays(ode_coefs)
+
+        last_n = 0
+        # iterate over events
+        for j, event in enumerate(self.events):
+            x0v0 = event_params[last_n:last_n + 2]
+            last_n += 2
+            if event.using_ep:
+                ep = event_params[last_n]
+                last_n += 1
+            else:
+                ep = None
+            if event.using_logfx:
+                logfx = event_params[last_n]
+                last_n += 1
+            else:
+                logfx = None
+            if event.using_logfv:
+                logfv = event_params[last_n]
+                last_n += 1
+            else:
+                logfv = None        
+            if j == i-1:
+                return event.predict(A, B, F, C, x0v0, ep)
 
     def setup_mcmc_model(self):
         """
