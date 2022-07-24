@@ -61,7 +61,7 @@ class Event:
             uncertainty of the measurements. Can be a float with a unique value
             for all measurements, or an array of the same shape as x_data with
             a unique value for each value of x_data.
-        v_data : TYPE, optional
+        v_data : array, optional
             array containing the velocity measurements. Must be of the same
             length as t_data.
         v_sigma : float or array, optional
