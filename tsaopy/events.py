@@ -61,7 +61,7 @@ class Event:
             uncertainty of the measurements. Can be a float with a unique value
             for all measurements, or an array of the same shape as x_data with
             a unique value for each value of x_data.
-        v_data : TYPE, optional
+        v_data : array, optional
             array containing the velocity measurements. Must be of the same
             length as t_data.
         v_sigma : float or array, optional
@@ -98,7 +98,7 @@ class Event:
             if 'v0' not in params:
                 raise EventInitException('no v0 param when building Event.')
         except Exception as exception:
-            raise EventInitException("couldn't assert x0 and v0 keys were incl"
+            raise EventInitException("couldn't verify x0 and v0 keys were incl"
                                      "uded in params dict.") from exception
 
         # test if priors don't return a positive float when called
@@ -112,14 +112,15 @@ class Event:
                     raise ValueError("prior for a param returned a negative va"
                                      "lue when called with a random float.")
             except Exception as exception:
-                raise EventInitException("couldn't check that a random float "
+                raise EventInitException("couldn't verify that a random float "
                                          "returns a positive value for some "
                                          "parameter prior.") from exception
 
         # do check for v data usage
         if v_data is not None:
             if v_sigma is None:
-                raise EventInitException("v_data array given but no v_sigma.")
+                raise EventInitException("v_data is being used but v_sigma is "
+                                         "missing.")
             self.using_v_data = True
         else:
             self.using_v_data = False
@@ -133,10 +134,10 @@ class Event:
                     raise ValueError('x_data and v_data have different shapes.'
                                      )
         except Exception as exception:
-            raise EventInitException("couldn't assert all input arrays have "
-                                     "compatible shapes.") from exception
+            raise EventInitException("couldn't verify that all input arrays "
+                                     "have compatible shapes.") from exception
 
-        # check x and t have finite float values
+        # check arrays have finite float values
         try:
             if not np.isfinite(x_data).all():
                 raise ValueError('x_data has non finite values.')
@@ -146,8 +147,8 @@ class Event:
                 if not np.isfinite(v_data).all():
                     raise ValueError('v_data has non finite values.')
         except Exception as exception:
-            raise EventInitException("couldn't assert all values in input "
-                                     "arrays are finite numbers.") \
+            raise EventInitException("couldn't verify that all values in input"
+                                     " arrays are finite numbers.") \
                                                             from exception
 
         #       Define core attributes ~~~~
@@ -236,6 +237,7 @@ class Event:
         """Compute log likelihood for event parameters and ODE coefs arrays."""
         pred = self._predict(A, B, F, C, x0v0, ep)
 
+        # discard diverging simulations
         if not np.isfinite(pred).all():
             return -np.inf
 

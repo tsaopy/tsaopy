@@ -80,7 +80,7 @@ class Model:
                                                  'parameters.')
                     # check that for every parameter p(x) > 0
                     else:
-                        _, p, x = coef, np.random.normal(.0, 100.0)
+                        (_, p), x = coef, np.random.normal(.0, 100.0)
                         if p(x) < .0:
                             raise ModelInitException("some ODE prior returned "
                                                      "a negative value when "
@@ -88,8 +88,7 @@ class Model:
                                                      "float.")
             # general exception
             except Exception as exception:
-                raise ModelInitException('unknown issue with the ode coefs '
-                                         'dictionary.') from exception
+                raise ModelInitException('') from exception
 
         self.odecoefs = []
         self.paramslabels = []
@@ -124,8 +123,9 @@ class Model:
         if 'f' not in ode_coefs:
             self.using_f = False
         elif 'f' in ode_coefs:
-            assert len(ode_coefs['f']) == 3, ('Error building tsaopy model: f '
-                                              'key provided but len is not 3.')
+            if not len(ode_coefs['f']) == 3:
+                raise ModelInitException("f key provided in ode_coefs dict but"
+                                         " its value's length is not 3.")
             self.using_f = True
             fcoefs = ode_coefs['f']
             fcoefs.sort()
@@ -316,14 +316,8 @@ class Model:
             else:
                 ep = None
             if event.using_logfx:
-                logfx = event_params[last_n]
                 last_n += 1
-            else:
-                logfx = None
             if event.using_logfv:
-                logfv = event_params[last_n]
                 last_n += 1
-            else:
-                logfv = None        
             if j == i-1:
                 return event._predict(A, B, F, C, x0v0, ep)
