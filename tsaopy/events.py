@@ -66,8 +66,8 @@ class Event:
             length as t_data.
         v_sigma : float or array, optional
             uncertainty of the measurements. Can be a float with a unique value
-            for all measurements, or an array of the same shape as x_data with
-            a unique value for each value of x_data. Necessary if v_data is
+            for all measurements, or an array of the same shape as v_data with
+            a unique value for each value of v_data. Necessary if v_data is
             being used.
 
         Examples
