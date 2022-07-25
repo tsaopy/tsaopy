@@ -14,9 +14,9 @@ class ModelInitException(Exception):
 
 
 #           tsaopy scripts
-class Model:
+class BaseModel:
     """
-    tsaopy Model class.
+    tsaopy BaseModel class.
 
     This object condenses all necessary variables to set up the ODE according
     to the parameters provided plus the MCMC configuration to do the fitting.
