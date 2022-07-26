@@ -1,6 +1,6 @@
 """tsaopy Events submodule."""
 import numpy as np
-from tsaopy._f2pyauxmod import simulation, simulationv
+from _f2pyauxmod import simulation, simulationv
 
 
 #           Aux stuff, raises etc
@@ -197,30 +197,33 @@ class Event:
             self.v_data = v_data
             self.v_sigma = v_sigma
 
-    def _predict(self, A, B, F, C, x0v0, ep):
+    def _predict(self, A, B, C, F, x0v0, ep):
         """Compute tsaopy prediction using coefs and iniconds."""
         use_ep, use_v = self.using_ep, self.using_v_data
         tsplit = self.tsplit
-        dt, datalen = self.dt / tsplit, self.datalen * tsplit
+        dt, datalen = self.dt / tsplit, (self.datalen - 1) * tsplit + 1
 
-        na, nb = len(A), len(B)
+        na, nb, nf = len(A), len(B), len(F)
         cn, cm = C.shape
+
+        if cn == 0 or cm == 0:
+            cn, cm, C = 1, 1, np.zeros(1)
 
         if not use_ep and not use_v:
             return simulation(x0v0, A, B, C, F,
-                              dt, datalen, na, nb, cn, cm)[::tsplit]
+                              dt, datalen, na, nb, cn, cm, nf)[::tsplit]
         if use_ep and not use_v:
             return simulation(x0v0, A, B, C, F,
                               dt, datalen, na, nb, cn,
                               cm)[::tsplit] + ep
         if not use_ep and use_v:
             return simulationv(x0v0, A, B, C, F,
-                               dt, datalen, na, nb, cn, cm)[::tsplit]
+                               dt, datalen, na, nb, cn, cm, nf)[::tsplit]
         if use_ep and use_v:
             arr = np.zeros((self.datalen, 2))
             arr[:, 0] += ep
             return simulationv(x0v0, A, B, C, F,
-                               dt, datalen, na, nb, cn, cm)[::tsplit] + arr
+                               dt, datalen, na, nb, cn, cm, nf)[::tsplit] + arr
 
     def _log_prior(self, event_coords):
         """Compute log prior for event parameters."""
@@ -232,10 +235,10 @@ class Event:
             result *= prob
         return np.log(result)
 
-    def _log_likelihood(self, A, B, F, C, x0v0,
+    def _log_likelihood(self, A, B, C, F, x0v0,
                         ep, log_fx, log_fv):
         """Compute log likelihood for event parameters and ODE coefs arrays."""
-        pred = self._predict(A, B, F, C, x0v0, ep)
+        pred = self._predict(A, B, C, F, x0v0, ep)
 
         # discard diverging simulations
         if not np.isfinite(pred).all():

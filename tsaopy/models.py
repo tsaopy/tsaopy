@@ -14,16 +14,16 @@ class ModelInitException(Exception):
 
 
 #           tsaopy scripts
-class Model:
+class BaseModel:
     """
-    tsaopy Model class.
+    tsaopy BaseModel class.
 
     This object condenses all necessary variables to set up the ODE according
     to the parameters provided plus the MCMC configuration to do the fitting.
 
     """
 
-    def __init__(self, ode_coefs, events):
+    def __init__(self, ode_coefs, events, driving_force=None):
         r"""
         Parameters
         ----------
@@ -42,13 +42,18 @@ class Model:
 
             * the order of the term for 'a' and 'b' coefs. Eg: in \(b_2x^2\)
             the index of \(b_2\) coef is 2.
-            * for 'f' coefs, \(F_0\) is 1, \(\omega\) is 2, and \(\phi\) is 3.
+            * for 'f' coefs pass the index of each element in f_coords array
+            starting at 1.
             * for 'c' coefs use a touple with two indices for the order of each
             factor. Eg: in \(c_{21}x^2\dot{x}\) index is (2, 1).
         events : list
             list containing all tsaopy Event objects to which the model will be
             fitted. Even if only one Event is used, pass it inside a list.
-
+        driving_force : callable, optional
+            A callable to compute the driving force. It must take two arguments
+            , first a float for the time variable, and then an array with all
+            the parameters other than the time variable. The default is
+            None(uses \(F(t)=0\)).
 
         Examples
         --------
@@ -119,19 +124,6 @@ class Model:
             self.bdim = 0
             self.blen = 0
 
-        # f vector
-        if 'f' not in ode_coefs:
-            self.using_f = False
-        elif 'f' in ode_coefs:
-            if not len(ode_coefs['f']) == 3:
-                raise ModelInitException("f key provided in ode_coefs dict but"
-                                         " its value's length is not 3.")
-            self.using_f = True
-            fcoefs = ode_coefs['f']
-            fcoefs.sort()
-            self.odecoefs += fcoefs
-            self.paramslabels += [r'F_0', r'\omega', r'\phi']
-
         # C matrix
         if 'c' in ode_coefs:
             ccoefs = ode_coefs['c']
@@ -147,6 +139,26 @@ class Model:
             self.cind = []
             self.cdim = 0
             self.cn, self.cm = 0, 0
+
+        # f ~ driving force
+        if 'f' not in ode_coefs and driving_force is None:
+            self.using_f = False
+            self.fdim = 0
+        elif 'f' not in ode_coefs and driving_force is not None:
+            raise ModelInitException("driving_force was passed but there is "
+                                     "no f key in ode_coefs.")
+        elif 'f' in ode_coefs and driving_force is None:
+            raise ModelInitException("f key was passed in ode_coefs but "
+                                     "driving_force is None.")
+        elif 'f' in ode_coefs and driving_force is not None:
+            self.using_f = True
+            self.df_function = driving_force
+            fcoefs = ode_coefs['f']
+            fcoefs.sort()
+            self.fdim = len(fcoefs)
+            self.odecoefs += fcoefs
+            self.paramslabels += ['f' + str(i)
+                                  for i in range(1, self.fdim + 1)]
 
         self.odecoefs_ndim = len(self.odecoefs)
         self.odepriors = [c[-1] for c in self.odecoefs]
@@ -169,38 +181,43 @@ class Model:
         for e in events:
             self.ndim += e.ndim
 
-    def _ode_arrays(self, ode_coefs):
+    def _ode_arrays(self, abc_coefs):
         alen, blen, cn, cm = self.alen, self.blen, self.cn, self.cm
         aind, bind, cind = self.aind, self.bind, self.cind
         adim, bdim = self.adim, self.bdim
-        A, B, F, C = (np.zeros(alen), np.zeros(blen), np.zeros(3),
-                      np.zeros((cn, cm)))
+        A, B, C = (np.zeros(alen), np.zeros(blen), np.zeros((cn, cm)))
 
         for i, ind in enumerate(aind):
-            A[ind-1] = ode_coefs[i]
+            A[ind-1] = abc_coefs[i]
         last_n = adim
 
         for i, ind in enumerate(bind):
-            B[ind-1] = ode_coefs[i + last_n]
+            B[ind-1] = abc_coefs[i + last_n]
         last_n += bdim
-
-        if self.using_f:
-            F = ode_coefs[last_n: last_n + 3]
-            last_n += 3
 
         for i, ind in enumerate(cind):
             n, m = ind
-            C[n - 1, m - 1] = ode_coefs[i + last_n]
+            C[n - 1, m - 1] = abc_coefs[i + last_n]
 
-        return A, B, F, C
+        return A, B, C
+
+    def _df_array(self, event, f_params):
+        Flen = 2 * (event.datalen - 1) * event.tsplit + 1
+        if self.using_f:
+            event_t = np.linspace(event.t_data[0], event.t_data[-1], Flen)
+            return self.df_function(event_t, f_params)
+        elif not self.using_f:
+            return np.zeros(Flen)
 
     def _log_likelihood(self, coords):
         """Compute log likelihood."""
-        odecoefs_ndim = self.odecoefs_ndim
-        ode_coefs, event_params = (coords[:odecoefs_ndim],
-                                   coords[odecoefs_ndim:])
+        abc_dim = self.adim + self.bdim + self.cdim
+        f_dim = self.fdim
+        abc_coefs, f_params, event_params = (coords[:abc_dim],
+                                             coords[abc_dim: abc_dim + f_dim],
+                                             coords[abc_dim + f_dim:])
 
-        A, B, F, C = self._ode_arrays(ode_coefs)
+        A, B, C = self._ode_arrays(abc_coefs)
 
         last_n = 0
         result = .0
@@ -224,7 +241,9 @@ class Model:
             else:
                 logfv = None
 
-            result += event._log_likelihood(A, B, F, C, x0v0,
+            F = self._df_array(event, f_params)
+
+            result += event._log_likelihood(A, B, C, F, x0v0,
                                             ep, logfx, logfv)
 
         return result
@@ -299,25 +318,24 @@ class Model:
             array of the same shape as the x_data attribute in the i-eth event.
 
         """
-        odecoefs_ndim = self.odecoefs_ndim
-        ode_coefs, event_params = (coords[:odecoefs_ndim],
-                                   coords[odecoefs_ndim:])
+        abc_dim = self.adim + self.bdim + self.cdim
+        f_dim = self.fdim
+        abc_coefs, f_params, event_params = (coords[:abc_dim],
+                                             coords[abc_dim: abc_dim + f_dim],
+                                             coords[abc_dim + f_dim:])
 
-        A, B, F, C = self._ode_arrays(ode_coefs)
+        A, B, C = self._ode_arrays(abc_coefs)
 
         last_n = 0
-        # iterate over events
+        # iterate over all events
         for j, event in enumerate(self.events):
-            x0v0 = event_params[last_n:last_n + 2]
-            last_n += 2
-            if event.using_ep:
-                ep = event_params[last_n]
-                last_n += 1
-            else:
-                ep = None
-            if event.using_logfx:
-                last_n += 1
-            if event.using_logfv:
-                last_n += 1
-            if j == i-1:
-                return event._predict(A, B, F, C, x0v0, ep)
+            if not j == i-1:
+                last_n += event.ndim
+            elif j == i-1:
+                x0v0, ep = event_params[last_n:last_n + 2], None
+                last_n += 2
+                if event.using_ep:
+                    ep = event_params[last_n]
+                    last_n += 1
+                F = self._df_array(event, f_params)
+                return event._predict(A, B, C, F, x0v0, ep)
