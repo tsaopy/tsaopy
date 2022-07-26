@@ -151,13 +151,14 @@ class BaseModel:
             raise ModelInitException("f key was passed in ode_coefs but "
                                      "driving_force is None.")
         elif 'f' in ode_coefs and driving_force is not None:
+            self.using_f = True
+            self.df_function = driving_force
             fcoefs = ode_coefs['f']
             fcoefs.sort()
-            self.flen = len(fcoefs)
+            self.fdim = len(fcoefs)
             self.odecoefs += fcoefs
             self.paramslabels += ['f' + str(i)
-                                  for i in range(1, self.flen + 1)]
-
+                                  for i in range(1, self.fdim + 1)]
 
         self.odecoefs_ndim = len(self.odecoefs)
         self.odepriors = [c[-1] for c in self.odecoefs]
