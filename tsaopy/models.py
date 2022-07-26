@@ -200,6 +200,14 @@ class BaseModel:
 
         return A, B, C
 
+    def _df_array(self, event, f_params):
+        Flen = 2 * (event.datalen - 1) * event.tsplit + 1
+        if self.using_f:
+            event_t = np.linspace(event.t_data[0], event.t_data[-1], Flen)
+            return self.df_function(event_t, f_params)
+        elif not self.using_f:
+            return np.zeros(Flen)
+
     def _log_likelihood(self, coords):
         """Compute log likelihood."""
         abc_dim = self.adim + self.bdim + self.cdim
@@ -232,12 +240,8 @@ class BaseModel:
             else:
                 logfv = None
 
-            Flen = 2 * (event.datalen - 1) * event.tsplit + 1
-            if self.using_f:
-                event_t = np.linspace(event.t_data[0], event.t_data[-1], Flen)
-                F = self.df_function(event_t, f_params)
-            elif not self.using_f:
-                F = np.zeros(Flen)
+            F = self._df_array(event, f_params)
+
             result += event._log_likelihood(A, B, C, F, x0v0,
                                             ep, logfx, logfv)
 
@@ -313,25 +317,24 @@ class BaseModel:
             array of the same shape as the x_data attribute in the i-eth event.
 
         """
-        odecoefs_ndim = self.odecoefs_ndim
-        ode_coefs, event_params = (coords[:odecoefs_ndim],
-                                   coords[odecoefs_ndim:])
+        abc_dim = self.adim + self.bdim + self.cdim
+        f_dim = self.fdim
+        abc_coefs, f_params, event_params = (coords[:abc_dim],
+                                             coords[abc_dim: abc_dim + f_dim],
+                                             coords[abc_dim + f_dim:])
 
-        A, B, F, C = self._ode_arrays(ode_coefs)
+        A, B, C = self._ode_arrays(abc_coefs)
 
         last_n = 0
-        # iterate over events
+        # iterate over all events
         for j, event in enumerate(self.events):
-            x0v0 = event_params[last_n:last_n + 2]
-            last_n += 2
-            if event.using_ep:
-                ep = event_params[last_n]
-                last_n += 1
-            else:
-                ep = None
-            if event.using_logfx:
-                last_n += 1
-            if event.using_logfv:
-                last_n += 1
-            if j == i-1:
-                return event._predict(A, B, F, C, x0v0, ep)
+            if not j == i-1:
+                last_n += event.ndim
+            elif j == i-1:
+                x0v0, ep = event_params[last_n:last_n + 2], None
+                last_n += 2
+                if event.using_ep:
+                    ep = event_params[last_n]
+                    last_n += 1
+                F = self._df_array(event, f_params)
+                return event._predict(A, B, C, F, x0v0, ep)
