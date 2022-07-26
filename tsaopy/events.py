@@ -1,6 +1,6 @@
 """tsaopy Events submodule."""
 import numpy as np
-from _f2pyauxmod import simulation, simulationv
+from tsaopy._f2pyauxmod import simulation, simulationv
 
 
 #           Aux stuff, raises etc
