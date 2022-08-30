@@ -17,11 +17,6 @@ def _ll(pred, data, sigma):
     return -.5 * np.sum(((pred - data) / sigma) ** 2)
 
 
-def _ll_logf(pred, data, sigma, logf):
-    s2 = sigma ** 2 + pred ** 2 * np.exp(2 * logf)
-    return -.5 * np.sum((pred - data) ** 2 / s2 + np.log(s2))
-
-
 #           tsaopy scripts
 class Event:
     """
