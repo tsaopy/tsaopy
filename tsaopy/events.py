@@ -1,6 +1,6 @@
 """tsaopy Events submodule."""
 import numpy as np
-from tsaopy._f2pyauxmod import simulation, simulationv
+from _f2pyauxmod import simulation
 
 
 #           Aux stuff, raises etc
@@ -13,7 +13,12 @@ class EventInitException(Exception):
         super().__init__(msg)
 
 
-def _ll(pred, data, sigma):
+def _base_ll(pred, data, sigma):
+
+    # discard diverging simulations
+    if not np.isfinite(pred).all():
+        return -np.inf
+
     return -.5 * np.sum(((pred - data) / sigma) ** 2)
 
 
@@ -34,19 +39,20 @@ class Event:
     """
 
     def __init__(self, params, t_data, x_data, x_sigma,
-                 v_data=None, v_sigma=None):
+                 v_data=None, v_sigma=None, log_likelihood=None,
+                 ll_params=None):
         """
+
         Parameters
         ----------
         params : dict
             dictionary containing the parameters relevant in the event. It's
             necessary to always include x0 and v0. Optionally one can use ep
-            for the equilibrium point, and log_fx and log_fv for the f term in
-            the uncertainty (see docs for more info).
+            for the equilibrium point for a series where it's equilibrium point
+            is shifted from 0.
 
-            Each parameter in the dict should be defined with its key ('x0,
-            'v0', 'ep', 'log_fx', 'log_fv') and the value should be the prior
-            for that parameter.
+            Each entry in the dictionary should be defined with its key ('x0',
+            'v0', 'ep') and the value should be the prior for that parameter.
         t_data : array
             array containing the time values. Values must be evenly spread.
         x_data : array
@@ -64,6 +70,13 @@ class Event:
             for all measurements, or an array of the same shape as v_data with
             a unique value for each value of v_data. Necessary if v_data is
             being used.
+        log_likelihood : callable, optional
+            Optional parameter for including a custom logarithmic likelihood.
+            See docs on how to set it up. The default is None.
+        ll_params : dict, optional
+            A dictionary with extra parameters used by the custom log likelihoo
+            d. Use a label for keys and a prior for the value. The default is
+            None.
 
         Examples
         --------
@@ -84,6 +97,7 @@ class Event:
                            }
 
             event1 = tsaopy.events.Event(params_dict, t, x, x_noise)
+
         """
         #           TO DO HERE: improve error handling ...
         # make sure that x0 and v0 are in params
@@ -152,9 +166,6 @@ class Event:
         self.datalen = len(t_data)
         self.dt = (t_data[-1] - t_data[0]) / (self.datalen - 1)
 
-        # attribute params
-        self.params = params
-
         # attibute priors
         self.priors = [params['x0'],
                        params['v0']]
@@ -166,24 +177,6 @@ class Event:
         else:
             self.using_ep = False
 
-        # do checks for fx
-        if 'log_fx' in params:
-            self.using_logfx = True
-            self.priors.append(params['log_fx'])
-        else:
-            self.using_logfx = False
-
-        # do checks for fv
-        if 'log_fv' in params:
-            # necessary check
-            if not self.using_v_data:
-                raise EventInitException("log_fv is in params but there is no "
-                                         "v data.")
-            self.using_logfv = True
-            self.priors.append(params['log_fv'])
-        else:
-            self.using_logfv = False
-
         # save observations & sigma data
         self.t_data = t_data
         self.x_data = x_data
@@ -191,6 +184,24 @@ class Event:
         if self.using_v_data:
             self.v_data = v_data
             self.v_sigma = v_sigma
+
+        # log likelihood
+        if log_likelihood is None:
+            self.use_custom_ll = False
+        else:
+            self.use_custom_ll = True
+            self.custom_ll = log_likelihood
+
+        if ll_params is None:
+            self.custom_ll_params = False
+        else:
+            self.custom_ll_params = True
+            self.custom_ll_params_labels = [_ for _ in ll_params]
+            self.priors += [ll_params[_] for _ in ll_params]
+            self.cllp_ndim = len(ll_params)
+            self.ndim += self.cllp_ndim
+
+    #  methods ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def _predict(self, A, B, C, F, x0v0, ep):
         """Compute tsaopy prediction using coefs and iniconds."""
@@ -204,21 +215,38 @@ class Event:
         if cn == 0 or cm == 0:
             cn, cm, C = 1, 1, np.zeros(1)
 
+        pred = simulation(x0v0, A, B, C, F,
+                          dt, datalen, na, nb, cn, cm, nf)[::tsplit]
+        predx, predv = pred[:, 0], pred[:, 1]
+
         if not use_ep and not use_v:
-            return simulation(x0v0, A, B, C, F,
-                              dt, datalen, na, nb, cn, cm, nf)[::tsplit]
-        if use_ep and not use_v:
-            return simulation(x0v0, A, B, C, F,
-                              dt, datalen, na, nb, cn,
-                              cm)[::tsplit] + ep
-        if not use_ep and use_v:
-            return simulationv(x0v0, A, B, C, F,
-                               dt, datalen, na, nb, cn, cm, nf)[::tsplit]
-        if use_ep and use_v:
-            arr = np.zeros((self.datalen, 2))
-            arr[:, 0] += ep
-            return simulationv(x0v0, A, B, C, F,
-                               dt, datalen, na, nb, cn, cm, nf)[::tsplit] + arr
+            return predx
+        elif use_ep and not use_v:
+            return predx + ep
+        elif not use_ep and use_v:
+            return predx, predv
+        elif use_ep and use_v:
+            return predx + ep, predv
+
+    def _default_ll(self, pred):
+        """Default log likelihood."""
+        if not self.using_v_data:
+            return _base_ll(pred, self.x_data, self.x_sigma)
+        elif self.using_v_data:
+            return (_base_ll(pred[0], self.x_data, self.x_sigma)
+                    + _base_ll(pred[1], self.v_data, self.v_sigma))
+
+    def _log_likelihood(self, A, B, C, F, x0v0,
+                        ep, ll_params):
+        """Compute log likelihood for event parameters and ODE coefs arrays."""
+        pred = self._predict(A, B, C, F, x0v0, ep)
+
+        if not self.use_custom_ll:
+            return self._default_ll(pred)
+        elif self.use_custom_ll and self.custom_ll_params:
+            return self.custom_ll(self, pred, ll_params)
+        elif self.use_custom_ll and not self.custom_ll_params:
+            return self.custom_ll(self, pred)
 
     def _log_prior(self, event_coords):
         """Compute log prior for event parameters."""
@@ -229,36 +257,3 @@ class Event:
                 return -np.inf
             result *= prob
         return np.log(result)
-
-    def _log_likelihood(self, A, B, C, F, x0v0,
-                        ep, log_fx, log_fv):
-        """Compute log likelihood for event parameters and ODE coefs arrays."""
-        pred = self._predict(A, B, C, F, x0v0, ep)
-
-        # discard diverging simulations
-        if not np.isfinite(pred).all():
-            return -np.inf
-
-        use_v, use_fx, use_fv = (self.using_v_data, self.using_logfx,
-                                 self.using_logfv)
-
-        # not using v data cases
-        if not use_v and not use_fx:
-            return _ll(pred, self.x_data, self.x_sigma)
-        elif not use_v and use_fx:
-            return _ll_logf(pred, self.x_data, self.x_sigma, log_fx)
-
-        predx, predv = pred[:, 0], pred[:, 1]
-        # using v data cases
-        if use_v and not use_fx and not use_fv:
-            return (_ll(predx, self.x_data, self.x_sigma)
-                    + _ll(predv, self.v_data, self.v_sigma))
-        elif use_v and use_fx and not use_fv:
-            return (_ll_logf(predx, self.x_data, self.x_sigma, log_fx)
-                    + _ll(predv, self.v_data, self.v_sigma))
-        elif use_v and not use_fx and use_fv:
-            return (_ll(predx, self.x_data, self.x_sigma)
-                    + _ll_logf(predv, self.v_data, self.v_sigma, log_fv))
-        elif use_v and use_fx and use_fv:
-            return (_ll_logf(predx, self.x_data, self.x_sigma, log_fx)
-                    + _ll_logf(predv, self.v_data, self.v_sigma, log_fv))
