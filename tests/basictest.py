@@ -1,76 +1,58 @@
-import quickemcee as qmc
 import numpy as np
+import quickemcee as qmc
+import matplotlib.pyplot as plt
+import tsaopy
 from scipy.optimize import minimize
-import models, events
 
-# # # events
-# set up event 1
+# make data
+np.random.seed(1020)
+n_noise, u_noise = .1, .3
+ndata = 301
+t_data = np.linspace(0, 30, ndata)
+x_data = np.cos(t_data)*np.exp(-.1*t_data)
+v_data = np.gradient(x_data, t_data)
+x_data += (abs(x_data)*np.random.uniform(-u_noise, u_noise) +
+           np.random.normal(0, n_noise, ndata))
+v_data += (abs(v_data)*np.random.uniform(-u_noise, u_noise) +
+           np.random.normal(0, n_noise, ndata))*.7
 
-np.random.seed(3354)
+plt.plot(t_data, x_data)
+plt.plot(t_data, v_data)
+plt.show()
 
-t1 = np.linspace(0, 10, 101)
-x1 = -.3 * t1 + 10 + np.random.normal(.0, .5, 101)
+# new solution
+ev1_params = {'x0': qmc.utils.normal_prior(1, 5),
+              'v0': qmc.utils.normal_prior(0, 5)}
 
-event1_params = {'x0': qmc.utils.normal_prior(10.0, 5.0),
-                 'v0': qmc.utils.normal_prior(0.0, 5.0)
-                 }
 
-event1 = events.Event(event1_params, t1, x1, 1.5)
+# custom log likelihood
+def base_ctom_ll(pred, data, sigma, log_f):
+    s2 = sigma**2 + data**2 * np.exp(2*log_f)
+    return -.5 * np.sum((data - pred) ** 2 / s2 + np.log(s2))
 
-# set up event 2
 
-t2 = np.linspace(0, 10, 101)
-x2 = .5 * t2 + 5 + np.random.normal(.0, .5, 101)
+def custom_ll(_self, pred, ll_vals):
+    log_fx, log_fv = ll_vals
+    predx, predv = pred
+    return (base_ctom_ll(predx, _self.x_data, _self.x_sigma, log_fx)
+            + base_ctom_ll(predv, _self.v_data, _self.v_sigma, log_fv))
 
-event2_params = {'x0': qmc.utils.normal_prior(5.0, 5.0),
-                 'v0': qmc.utils.normal_prior(0.0, 5.0)
-                 }
 
-event2 = events.Event(event2_params, t2, x2, 1.5)
+ctom_llparams = {'log_fx': qmc.utils.uniform_prior(-10, 1),
+                 'log_fv': qmc.utils.uniform_prior(-20, 5)}
 
-# set up tsaopy model
+events = [tsaopy.events.Event(ev1_params, t_data, x_data, .05, v_data, .05,
+                              custom_ll, ctom_llparams)]
 
-ode_coefs = {'a': [(1, qmc.utils.normal_prior(0.0, 5.0))],
-             'b': [(1, qmc.utils.normal_prior(0.0, 5.0))]}
+ode_coefs = {'a': [(1, qmc.utils.normal_prior(0, 5))],
+             'b': [(1, qmc.utils.normal_prior(0, 5))]}
 
-tsaopymodel = models.BaseModel(ode_coefs, [event1, event2])
+mymodel = tsaopy.models.BaseModel(ode_coefs, events)
+mysampler = mymodel.setup_mcmc_model()
+ini_vals = (0, 0, 1, 0, -1, -1)
+faux = mymodel.neg_ll
+ini_vals = minimize(faux, ini_vals).x
+emcee_ensemble = mysampler.run_chain(100, 300, 200,
+                                     init_x=ini_vals)
 
-# do mcmc
-
-neg_ll = lambda coords : -tsaopymodel._log_likelihood(coords)
-
-sol = minimize(neg_ll, np.zeros(6))
-
-mcmcmodel = tsaopymodel.setup_mcmc_model()
-
-sampler = mcmcmodel.run_chain(100, 2000, 2000,
-                              init_x=sol.x, workers=1)
-
-flat_samples, samples = sampler.get_chain(flat=True), sampler.get_chain()
-
-labels = tsaopymodel.paramslabels
-
-# traceplots
-qmc.utils.traceplots(samples=samples, labels_list=labels)
-
-# cornerplots
-qmc.utils.cornerplots(flat_samples=flat_samples, labels_list=labels)
-
-# autocplots
-qmc.utils.autocplots(flat_samples=flat_samples, labels_list=labels)
-
-# results
-predf1 = lambda coords: tsaopymodel.event_predict(1, coords)
-predf2 = lambda coords: tsaopymodel.event_predict(2, coords)
-
-qmc.utils.resultplot(flat_samples, x1, t1, predf1,
-                     plotsamples=100)
-
-qmc.utils.resultplot(flat_samples, x1, t1, predf1,
-                     plotmode=True)
-
-qmc.utils.resultplot(flat_samples, x2, t2, predf2,
-                     plotsamples=100)
-
-qmc.utils.resultplot(flat_samples, x2, t2, predf2,
-                     plotmode=True)
+flat_chain = emcee_ensemble.get_chain(flat=Tru
