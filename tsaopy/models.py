@@ -67,9 +67,14 @@ class BaseModel:
                                 'f': [(1, F_prior), (2, w_prior),
                                       (3, p_prior)],
                                 'c': [((2, 1), c21_prior)]}
+ 
+            def dforce(t, f_params):
+                F, w, p = f_params
+                return F*np.sin(w*t + p)
 
             model1 = tsaopy.models.Model(ode_coefs=model1_ode_coefs,
-                                         events=[event1, event2, event3])
+                                         events=[event1, event2, event3],
+                                         driving_force=dforce)
         """
         # run tests
         for i in ode_coefs:
