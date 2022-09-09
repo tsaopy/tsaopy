@@ -163,16 +163,15 @@ class BaseModel:
         self.odecoefs_ndim = len(self.odecoefs)
         self.odepriors = [c[-1] for c in self.odecoefs]
 
-        # finish param labels & ini guess
+        # finish param labels
         for i, event in enumerate(events):
             self.paramslabels += [str(i+1) + ' - ' + s
                                   for s in ['x0', 'v0']]
             if event.using_ep:
                 self.paramslabels.append(str(i+1) + ' - ep')
-            if event.using_logfx:
-                self.paramslabels.append(str(i+1) + ' - log_fx')
-            if event.using_logfv:
-                self.paramslabels.append(str(i+1) + ' - log_fv')
+            if event.custom_ll_params:
+                self.paramslabels += [str(i+1) + ' - ' + _ for _ in
+                                      event.custom_ll_params_labels]
 
         # store events and final data
         self.events = events
@@ -230,22 +229,16 @@ class BaseModel:
                 last_n += 1
             else:
                 ep = None
-            if event.using_logfx:
-                logfx = event_params[last_n]
-                last_n += 1
+            if event.custom_ll_params:
+                ll_params = event_params[last_n:last_n + event.cllp_ndim]
+                last_n += event.cllp_ndim
             else:
-                logfx = None
-            if event.using_logfv:
-                logfv = event_params[last_n]
-                last_n += 1
-            else:
-                logfv = None
+                ll_params = None
 
             F = self._df_array(event, f_params)
 
             result += event._log_likelihood(A, B, C, F, x0v0,
-                                            ep, logfx, logfv)
-
+                                            ep, ll_params)
         return result
 
     def _log_prior(self, coords):
@@ -339,3 +332,30 @@ class BaseModel:
                     last_n += 1
                 F = self._df_array(event, f_params)
                 return event._predict(A, B, C, F, x0v0, ep)
+
+    def neg_ll(self, coords):
+        """
+        Compute the negative logarithmic likelihood.
+
+        Compute the negative logarithmic likelihood for a set of parameter
+        values for the defined model. This is best used when optimizing the
+        initial values with an external optimizer.
+
+        Parameters
+        ----------
+        coords : array
+            values for each parameter. The elements must be passed in the same
+            order than the parameters arg that was passed when initializing the
+            model.
+
+        Returns
+        -------
+        float
+            value of `neg_ll` for the given parameter values.
+
+        Examples
+        -------
+            f_to_minimize = my_model.neg_ll
+            external_function_minimizer(f_to_minimize, *args)
+        """
+        return -self._log_likelihood(coords)
