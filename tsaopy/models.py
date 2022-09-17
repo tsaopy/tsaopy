@@ -12,6 +12,8 @@ class ModelInitException(Exception):
                        'Model object.')
         super().__init__(msg)
 
+def _zero_df(t):
+    return t*0
 
 #           tsaopy scripts
 class BaseModel:
@@ -31,7 +33,7 @@ class BaseModel:
             dictionary containing the ode coefficients relevant in the model's
             ODE.
 
-            Note: if the model considers driving force, all three coeffients
+            Note: if the model considers driving force, all parameters
             must be included.
 
             Each key should be one of type of coefficients in the ODE ('a',
@@ -53,7 +55,7 @@ class BaseModel:
             A callable to compute the driving force. It must take two arguments
             , first a float for the time variable, and then an array with all
             the parameters other than the time variable. The default is
-            None(uses \(F(t)=0\)).
+            None(uses \(F(t)=0\)). It must be mappable to numpy arrays.
 
         Examples
         --------
@@ -136,7 +138,7 @@ class BaseModel:
             self.odecoefs += ccoefs
             self.cind = [c[0] for c in ccoefs]
             self.paramslabels += [r'c_{' + str(i[0]) + str(i[1]) + '}'
-                                  for i in self.bind]
+                                  for i in self.cind]
             self.cdim = len(self.cind)
             self.cn = max([i[0] for i in self.cind])
             self.cm = max([i[1] for i in self.cind])
@@ -147,6 +149,7 @@ class BaseModel:
 
         # f ~ driving force
         if 'f' not in ode_coefs and driving_force is None:
+            self.df_function = _zero_df
             self.using_f = False
             self.fdim = 0
         elif 'f' not in ode_coefs and driving_force is not None:
@@ -170,8 +173,11 @@ class BaseModel:
 
         # finish param labels
         for i, event in enumerate(events):
-            self.paramslabels += [str(i+1) + ' - ' + s
-                                  for s in ['x0', 'v0']]
+            if event.using_tt:
+                self.paramslabels.append(str(i+1) + ' - tt')
+            if event.using_x0v0:
+                self.paramslabels += [str(i+1) + ' - ' + s
+                                      for s in ['x0', 'v0']]
             if event.using_ep:
                 self.paramslabels.append(str(i+1) + ' - ep')
             if event.custom_ll_params:
@@ -205,13 +211,55 @@ class BaseModel:
 
         return A, B, C
 
-    def _df_array(self, event, f_params):
-        Flen = 2 * (event.datalen - 1) * event.tsplit + 1
-        if self.using_f:
-            event_t = np.linspace(event.t_data[0], event.t_data[-1], Flen)
-            return self.df_function(event_t, f_params)
-        elif not self.using_f:
-            return np.zeros(Flen)
+    def event_predict(self, i, coords):
+        """
+        Compute the prediction of the model for the i-eth event.
+
+        This method has the purpose of plotting the prediction of the model for
+        one of the events it was fitted to. Used for plotting with the results.
+
+        Parameters
+        ----------
+        i : int
+            An integer 1, 2, 3.. indicating the position of the event to
+            simulate in the events list provided to the Model instace. Don't
+            start at 0.'
+        coords : array
+            an array of length ndim(number of ode coefs plus number of params
+            for each model, total number of parameters to fit).
+
+        Returns
+        -------
+        array
+            array of the same shape as the x_data attribute in the i-eth event.
+
+        """
+        abc_dim = self.adim + self.bdim + self.cdim
+        f_dim = self.fdim
+        abc_coefs, f_params, event_params = (coords[:abc_dim],
+                                             coords[abc_dim: abc_dim + f_dim],
+                                             coords[abc_dim + f_dim:])
+
+        A, B, C = self._ode_arrays(abc_coefs)
+
+        last_n = 0
+        # iterate over all events
+        for j, event in enumerate(self.events):
+            if not j == i-1:
+                last_n += event.ndim
+            elif j == i-1:
+                tt, x0v0, ep = 0, np.zeros(2), 0
+                if event.using_tt:
+                    tt = event_params[last_n]
+                    last_n += 1
+                if event.using_x0v0:
+                    x0v0 = event_params[last_n:last_n + 2]
+                    last_n += 2
+                if event.using_ep:
+                    ep = event_params[last_n]
+                    last_n += 1
+                return event._predict(A, B, C, self.df_function, f_params,
+                                      tt, x0v0, ep)
 
     def _log_likelihood(self, coords):
         """Compute log likelihood."""
@@ -224,26 +272,29 @@ class BaseModel:
         A, B, C = self._ode_arrays(abc_coefs)
 
         last_n = 0
-        result = .0
+        result = 0
         # iterate over all events
         for event in self.events:
-            x0v0 = event_params[last_n:last_n + 2]
-            last_n += 2
+            tt, x0v0, ep = 0, np.zeros(2), 0
+            if event.using_tt:
+                tt = event_params[last_n]
+                last_n += 1
+            if event.using_x0v0:
+                x0v0 = event_params[last_n:last_n + 2]
+                last_n += 2
             if event.using_ep:
                 ep = event_params[last_n]
                 last_n += 1
-            else:
-                ep = None
             if event.custom_ll_params:
                 ll_params = event_params[last_n:last_n + event.cllp_ndim]
                 last_n += event.cllp_ndim
             else:
                 ll_params = None
 
-            F = self._df_array(event, f_params)
-
-            result += event._log_likelihood(A, B, C, F, x0v0,
-                                            ep, ll_params)
+            result += event._log_likelihood(A, B, C,
+                                            self.df_function, f_params,
+                                            tt, x0v0, ep,
+                                            ll_params)
         return result
 
     def _log_prior(self, coords):
@@ -292,51 +343,6 @@ class BaseModel:
             sampler = qmcmodel.run_chain(100, 50, 100)
         """
         return qmc.core.LPModel(self.ndim, self._log_probability)
-
-    def event_predict(self, i, coords):
-        """
-        Compute the prediction of the model for the i-eth event.
-
-        This method has the purpose of plotting the prediction of the model for
-        one of the events it was fitted to. Used for plotting with the results.
-
-        Parameters
-        ----------
-        i : int
-            An integer 1, 2, 3.. indicating the position of the event to
-            simulate in the events list provided to the Model instace. Don't
-            start at 0.'
-        coords : array
-            an array of length ndim(number of ode coefs plus number of params
-            for each model, total number of parameters to fit).
-
-        Returns
-        -------
-        array
-            array of the same shape as the x_data attribute in the i-eth event.
-
-        """
-        abc_dim = self.adim + self.bdim + self.cdim
-        f_dim = self.fdim
-        abc_coefs, f_params, event_params = (coords[:abc_dim],
-                                             coords[abc_dim: abc_dim + f_dim],
-                                             coords[abc_dim + f_dim:])
-
-        A, B, C = self._ode_arrays(abc_coefs)
-
-        last_n = 0
-        # iterate over all events
-        for j, event in enumerate(self.events):
-            if not j == i-1:
-                last_n += event.ndim
-            elif j == i-1:
-                x0v0, ep = event_params[last_n:last_n + 2], None
-                last_n += 2
-                if event.using_ep:
-                    ep = event_params[last_n]
-                    last_n += 1
-                F = self._df_array(event, f_params)
-                return event._predict(A, B, C, F, x0v0, ep)
 
     def neg_ll(self, coords):
         """

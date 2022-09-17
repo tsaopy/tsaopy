@@ -3,16 +3,6 @@ import numpy as np
 from tsaopy._f2pyauxmod import simulation
 
 
-#           Aux stuff, raises etc
-class EventInitException(Exception):
-    """Custom exception for Event instance init."""
-
-    def __init__(self, rtext):
-        msg = rtext + (' Exception ocurred while trying to instance a tsaopy '
-                       'Event object.')
-        super().__init__(msg)
-
-
 def _base_ll(pred, data, sigma):
 
     # discard diverging simulations
@@ -47,12 +37,16 @@ class Event:
         ----------
         params : dict
             dictionary containing the parameters relevant in the event. It's
-            necessary to always include x0 and v0. Optionally one can use ep
-            for the equilibrium point for a series where it's equilibrium point
-            is shifted from 0.
+            necessary to always include either x0 and v0 (initial conditions)
+            or tt (transient state time). If transient state is considered and
+            initial conditions not, then by default x0 and v0 are set to 0.
+            Ideally, use transient state time in driven oscillators.
+            Optionally one can use ep for the equilibrium point for a series
+            where it's equilibrium point is shifted from 0.
 
-            Each entry in the dictionary should be defined with its key ('x0',
-            'v0', 'ep') and the value should be the prior for that parameter.
+            Each entry in the dictionary should be defined with its key ('tt',
+            'x0', 'v0', 'ep') and the value should be the prior for that parame
+            ter.
         t_data : array
             array containing the time values. Values must be evenly spread.
         x_data : array
@@ -91,86 +85,41 @@ class Event:
             x0_prior = qmc.utils.normal_prior(1.0, 10.0)
             v0_prior = qmc.utils.normal_prior(.0, 10.0)
 
-            params_dict = {
-                           'x0': x0_prior,
+            params_dict = {'x0': x0_prior,
                            'v0': v0_prior
                            }
 
             event1 = tsaopy.events.Event(params_dict, t, x, x_noise)
 
         """
-        #           TO DO HERE: improve error handling ...
-        # make sure that x0 and v0 are in params
-        try:
-            if 'x0' not in params:
-                raise EventInitException('no x0 param when building Event.')
-            if 'v0' not in params:
-                raise EventInitException('no v0 param when building Event.')
-        except Exception as exception:
-            raise EventInitException("couldn't verify x0 and v0 keys were incl"
-                                     "uded in params dict.") from exception
-
-        # test if priors don't return a positive float when called
-        for param in params:
-            try:
-                x, p = np.random.normal(.0, 100.0), params[param]
-                if not np.isfinite(p(x)):
-                    raise ValueError("prior for a param return nan or inf when"
-                                     " called with a random float.")
-                if p(x) < .0:
-                    raise ValueError("prior for a param returned a negative va"
-                                     "lue when called with a random float.")
-            except Exception as exception:
-                raise EventInitException("couldn't verify that a random float "
-                                         "returns a positive value for some "
-                                         "parameter prior.") from exception
-
-        # do check for v data usage
-        if v_data is not None:
-            if v_sigma is None:
-                raise EventInitException("v_data is being used but v_sigma is "
-                                         "missing.")
-            self.using_v_data = True
-        else:
-            self.using_v_data = False
-
-        # check x and t have the same lengths, x and v same shape
-        try:
-            if not len(t_data) == len(x_data):
-                raise ValueError('x_data and t_data have different lengths.')
-            if self.using_v_data:
-                if not x_data.shape == v_data.shape:
-                    raise ValueError('x_data and v_data have different shapes.'
-                                     )
-        except Exception as exception:
-            raise EventInitException("couldn't verify that all input arrays "
-                                     "have compatible shapes.") from exception
-
-        # check arrays have finite float values
-        try:
-            if not np.isfinite(x_data).all():
-                raise ValueError('x_data has non finite values.')
-            if not np.isfinite(t_data).all():
-                raise ValueError('t_data has non finite values.')
-            if self.using_v_data:
-                if not np.isfinite(v_data).all():
-                    raise ValueError('v_data has non finite values.')
-        except Exception as exception:
-            raise EventInitException("couldn't verify that all values in input"
-                                     " arrays are finite numbers.") \
-                                                            from exception
+        #           TO DO HERE: error handling
 
         #       Define core attributes ~~~~
         self.ndim = len(params)
         self.tsplit = 2
         self.datalen = len(t_data)
-        self.dt = (t_data[-1] - t_data[0]) / (self.datalen - 1)
+        self.dt = np.float128((t_data[-1] - t_data[0]) / (self.datalen - 1))
 
         # attibute priors
-        self.priors = [params['x0'],
-                       params['v0']]
+        self.priors = []
 
-        # do checks for ep
+        # do checks in coefs
+        # tt
+        if 'tt' in params:
+            self.using_tt = True
+            self.priors.append(params['tt'])
+        else:
+            self.using_tt = False
+
+        # x0v0
+        if ('x0' in params and 'v0' in params):
+            self.using_x0v0 = True
+            self.priors.append(params['x0'])
+            self.priors.append(params['v0'])
+        else:
+            self.using_x0v0 = False
+
+        # ep
         if 'ep' in params:
             self.using_ep = True
             self.priors.append(params['ep'])
@@ -178,12 +127,16 @@ class Event:
             self.using_ep = False
 
         # save observations & sigma data
-        self.t_data = t_data
+        self.t0, self.tf = t_data[0], t_data[-1]
         self.x_data = x_data
         self.x_sigma = x_sigma
-        if self.using_v_data:
+
+        if not (v_data is None or v_sigma is None):
+            self.fit_to_v = True
             self.v_data = v_data
             self.v_sigma = v_sigma
+        else:
+            self.fit_to_v = False
 
         # log likelihood
         if log_likelihood is None:
@@ -203,43 +156,48 @@ class Event:
 
     #  methods ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    def _predict(self, A, B, C, F, x0v0, ep):
+    def _predict(self, A, B, C, df, df_params, tt, x0v0, ep):
         """Compute tsaopy prediction using coefs and iniconds."""
-        use_ep, use_v = self.using_ep, self.using_v_data
-        tsplit = self.tsplit
-        dt, datalen = self.dt / tsplit, (self.datalen - 1) * tsplit + 1
+        fit_to_v = self.fit_to_v
 
-        na, nb, nf = len(A), len(B), len(F)
+        tsplit = self.tsplit
+        dt = self.dt / tsplit
+
+        t0, tf = self.t0 - tt, self.tf
+        datalen = int((tf - t0) / dt) + 1
+
+        na, nb = len(A), len(B)
         cn, cm = C.shape
+        nf = 2 * (datalen - 1) + 1
+        t_array = np.linspace(t0, tf, nf)
+        F = df(t_array, df_params)
 
         if cn == 0 or cm == 0:
             cn, cm, C = 1, 1, np.zeros(1)
 
-        pred = simulation(x0v0, A, B, C, F,
-                          dt, datalen, na, nb, cn, cm, nf)[::tsplit]
+        pred = simulation(a_in=A, b_in=B, c_in=C, f_in=F, x_in=x0v0,
+                          na=na, nb=nb, cn=cn, cm=cm, nf=nf,
+                          datalen=datalen, dt=dt)[::tsplit][-self.datalen:]
         predx, predv = pred[:, 0], pred[:, 1]
 
-        if not use_ep and not use_v:
-            return predx
-        elif use_ep and not use_v:
+        if not fit_to_v:
             return predx + ep
-        elif not use_ep and use_v:
-            return predx, predv
-        elif use_ep and use_v:
+        elif fit_to_v:
             return predx + ep, predv
 
     def _default_ll(self, pred):
         """Default log likelihood."""
-        if not self.using_v_data:
+        if not self.fit_to_v:
             return _base_ll(pred, self.x_data, self.x_sigma)
-        elif self.using_v_data:
+        elif self.fit_to_v:
             return (_base_ll(pred[0], self.x_data, self.x_sigma)
                     + _base_ll(pred[1], self.v_data, self.v_sigma))
 
-    def _log_likelihood(self, A, B, C, F, x0v0,
-                        ep, ll_params):
+    def _log_likelihood(self, A, B, C, df, df_params,
+                        tt, x0v0, ep,
+                        ll_params):
         """Compute log likelihood for event parameters and ODE coefs arrays."""
-        pred = self._predict(A, B, C, F, x0v0, ep)
+        pred = self._predict(A, B, C, df, df_params, tt, x0v0, ep)
 
         if not self.use_custom_ll:
             return self._default_ll(pred)
