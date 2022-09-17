@@ -12,7 +12,7 @@ class ModelInitException(Exception):
                        'Model object.')
         super().__init__(msg)
 
-def _zero_df(t):
+def _zero_df(t, params):
     return t*0
 
 #           tsaopy scripts
