@@ -163,10 +163,10 @@ class Event:
         tsplit = self.tsplit
         dt = self.dt / tsplit
 
+        t0, tf = self.t0 - tt, self.tf
         if not self.using_tt and self.using_x0v0:
             datalen = (self.datalen - 1) * tsplit + 1
         elif self.using_tt:
-            t0, tf = self.t0 - tt, self.tf
             datalen = int((tf - t0) / dt) + 1
             if datalen < (self.datalen - 1) * tsplit + 1:
                 datalen += 1
