@@ -4,14 +4,14 @@ subroutine deriv(x_in,a_in,b_in,c_in,result,na,nb,cn,cm,f_i)
 implicit none
 ! inout vars
 integer,intent(in) :: na,nb,cn,cm
-real(8),intent(in) :: f_i
-real(8),intent(in),dimension(2) :: x_in
-real(8),intent(in),dimension(na) :: a_in
-real(8),intent(in),dimension(nb) :: b_in
-real(8),intent(in),dimension(cn,cm) :: c_in
-real(8),intent(out),dimension(2) :: result
+real*8,intent(in) :: f_i
+real*8,intent(in),dimension(2) :: x_in
+real*8,intent(in),dimension(na) :: a_in
+real*8,intent(in),dimension(nb) :: b_in
+real*8,intent(in),dimension(cn,cm) :: c_in
+real*8,intent(out),dimension(2) :: result
 ! aux vars
-real(8) :: x,v,sa,sb,sc
+real*8 :: x,v,sa,sb,sc
 integer :: i,j
 x=x_in(1)
 v=x_in(2)
@@ -38,14 +38,14 @@ subroutine rk4(x_in,a_in,b_in,c_in,result,dt,na,nb,cn,cm,f0,f1,f2)
 implicit none
 ! inout vars
 integer,intent(in) :: na,nb,cn,cm
-real(8),intent(in) :: dt,f0,f1,f2
-real(8),intent(in),dimension(2) :: x_in
-real(8),intent(in),dimension(na) :: a_in
-real(8),intent(in),dimension(nb) :: b_in
-real(8),intent(in),dimension(cn,cm) :: c_in
-real(8),intent(out),dimension(2) :: result
+real*8,intent(in) :: dt,f0,f1,f2
+real*8,intent(in),dimension(2) :: x_in
+real*8,intent(in),dimension(na) :: a_in
+real*8,intent(in),dimension(nb) :: b_in
+real*8,intent(in),dimension(cn,cm) :: c_in
+real*8,intent(out),dimension(2) :: result
 ! aux vars
-real(8),dimension(2) :: k1,k2,k3,k4,xaux,kaux
+real*8,dimension(2) :: k1,k2,k3,k4,xaux,kaux
 xaux = x_in
 call deriv(xaux,a_in,b_in,c_in,kaux,na,nb,cn,cm,f0)
 k1 = dt*kaux
@@ -63,21 +63,21 @@ return
 end subroutine rk4
 !--------------------------------------------------------
 !
-subroutine simulation(x_in,a_in,b_in,c_in,f_in,dt,datalen,na,nb,cn,cm,nf,result)
+subroutine simulation(a_in,b_in,c_in,f_in,x_in,na,nb,cn,cm,nf,datalen,dt,result)
 implicit none
 ! inout vars
 integer,intent(in) :: na,nb,cn,cm,datalen,nf
-real(8),intent(in) :: dt
-real(8),intent(in),dimension(2) :: x_in
-real(8),intent(in),dimension(nf) :: f_in
-real(8),intent(in),dimension(na) :: a_in
-real(8),intent(in),dimension(nb) :: b_in
-real(8),intent(in),dimension(cn,cm) :: c_in
-real(8),intent(out),dimension(datalen,2) :: result
+real*8,intent(in) :: dt
+real*8,intent(in),dimension(2) :: x_in
+real*8,intent(in),dimension(na) :: a_in
+real*8,intent(in),dimension(nb) :: b_in
+real*8,intent(in),dimension(cn,cm) :: c_in
+real*8,intent(in),dimension(nf) :: f_in
+real*8,intent(out),dimension(datalen,2) :: result
 ! aux vars
 integer :: i
-real(8) :: f0,f1,f2
-real(8),dimension(2) :: xaux0,xauxf
+real*8 :: f0,f1,f2
+real*8,dimension(2) :: xaux0,xauxf
 result(1,1) = x_in(1)
 result(1,2) = x_in(2)
 xaux0 = x_in
