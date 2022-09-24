@@ -12,8 +12,10 @@ class ModelInitException(Exception):
                        'Model object.')
         super().__init__(msg)
 
+
 def _zero_df(t, params):
     return t*0
+
 
 #           tsaopy scripts
 class BaseModel:
@@ -68,8 +70,9 @@ class BaseModel:
                                 'b': [(1, b1_prior)],
                                 'f': [(1, F_prior), (2, w_prior),
                                       (3, p_prior)],
-                                'c': [((2, 1), c21_prior)]}
- 
+                                'c': [((2, 1), c21_prior)]
+                                }
+
             def dforce(t, f_params):
                 F, w, p = f_params
                 return F*np.sin(w*t + p)
@@ -216,7 +219,8 @@ class BaseModel:
         Compute the prediction of the model for the i-eth event.
 
         This method has the purpose of plotting the prediction of the model for
-        one of the events it was fitted to. Used for plotting with the results.
+        one of the events in the dataset given the values for the parameters. U
+        sed in plotting results.
 
         Parameters
         ----------
@@ -231,7 +235,7 @@ class BaseModel:
         Returns
         -------
         array
-            array of the same shape as the x_data attribute in the i-eth event.
+            array of the same shape as x_data in the i-eth event.
 
         """
         abc_dim = self.adim + self.bdim + self.cdim
@@ -338,9 +342,9 @@ class BaseModel:
 
         Examples
         --------
-            tsaopymodel = tsaopy.models.Model(ode_coefs_dict, events_list)
-            qmcmodel = tsaopymodel.setup_mcmc_model()
-            sampler = qmcmodel.run_chain(100, 50, 100)
+            tsaopy_model = tsaopy.models.Model(ode_coefs_dict, events_list)
+            qmc_model = tsaopymodel.setup_mcmc_model()
+            emcee_sampler = qmcmodel.run_chain(100, 50, 100)
         """
         return qmc.core.LPModel(self.ndim, self._log_probability)
 
@@ -349,8 +353,8 @@ class BaseModel:
         Compute the negative logarithmic likelihood.
 
         Compute the negative logarithmic likelihood for a set of parameter
-        values for the defined model. This is best used when optimizing the
-        initial values with an external optimizer.
+        values for the defined model. This is used in maximum likelihood estima
+        tion.
 
         Parameters
         ----------
@@ -366,7 +370,9 @@ class BaseModel:
 
         Examples
         -------
+            from scipy.optimize import minimize
+
             f_to_minimize = my_model.neg_ll
-            external_function_minimizer(f_to_minimize, *args)
+            minimize(f_to_minimize, initial_guess, *args)
         """
         return -self._log_likelihood(coords)
