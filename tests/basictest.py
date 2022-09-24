@@ -1,6 +1,5 @@
 import numpy as np
 import quickemcee as qmc
-import matplotlib.pyplot as plt
 import tsaopy
 from scipy.optimize import minimize
 
@@ -15,10 +14,6 @@ x_data += (abs(x_data)*np.random.uniform(-u_noise, u_noise) +
            np.random.normal(0, n_noise, ndata))
 v_data += (abs(v_data)*np.random.uniform(-u_noise, u_noise) +
            np.random.normal(0, n_noise, ndata))*.7
-
-plt.plot(t_data, x_data)
-plt.plot(t_data, v_data)
-plt.show()
 
 # new solution
 ev1_params = {'x0': qmc.utils.normal_prior(1, 5),
@@ -55,4 +50,8 @@ ini_vals = minimize(faux, ini_vals).x
 emcee_ensemble = mysampler.run_chain(100, 300, 200,
                                      init_x=ini_vals)
 
-flat_chain = emcee_ensemble.get_chain(flat=Tru
+labels = mymodel.paramslabels
+flat_chain = emcee_ensemble.get_chain(flat=True)
+
+# 
+qmc.utils.cornerplots(flat_chain, labels)
