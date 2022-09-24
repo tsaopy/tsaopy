@@ -73,7 +73,7 @@ class Event:
             import tsaopy
             import quickemcee as qmc
 
-            t = np.linspace(0,10,101)
+            t = np.linspace(0, 10, 101)
             x = np.cos(t) + np.random.normal(.0, .3, 101) # data with noise
             x_noise = .3
 
