@@ -20,12 +20,7 @@ class Event:
     The idea behind the Event class is to make it straightforward to fit the
     same equation of motion to different sets of measurements at the same time.
 
-    Suppose we observed the same system several times with different initial
-    conditions. Then we will set up an Event instace for each of our experiment
-    runs. We will group them all together later when creating a Model class
-    instance. With this Model instance we will be fitting all the different
-    sets of measurements with the same equation of motion, but different
-    initial conditions, equilibrium points, etc.
+    Set up one Event instace for every set of (t, x{, v}) points.
     """
 
     def __init__(self, params, t_data, x_data, x_sigma,
@@ -38,9 +33,9 @@ class Event:
         params : dict
             dictionary containing the parameters relevant in the event. It's
             necessary to always include either x0 and v0 (initial conditions)
-            or tt (transient state time). If transient state is considered and
-            initial conditions not, then by default x0 and v0 are set to 0.
-            Ideally, use transient state time in driven oscillators.
+            or tt (time in transient state). If transient state is considered
+            and initial conditions are not, then by default x0 and v0 are set
+            to 0. Ideally, use time in transient state in driven oscillators.
             Optionally one can use ep for the equilibrium point for a series
             where it's equilibrium point is shifted from 0.
 
