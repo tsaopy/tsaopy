@@ -6,7 +6,7 @@ with open("buildreadme.md", "r", encoding="utf-8") as fh:
 setup(
       name='tsaopy',
       packages=['tsaopy'],
-      version='0.0.6a5',
+      version='0.0.6a6',
       description=('Time Series by Anharmonic Oscillators is a Python library '
                    'designed to analize time series by modelling them as '
                    'anharmonic oscillators.'),
